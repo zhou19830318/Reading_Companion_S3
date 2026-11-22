@@ -1,0 +1,582 @@
+# Reading Companion Voice Relay
+
+位于 DashScope（阿里云百炼 Alibaba Cloud Model Studio）实时 ASR 与流式 LLM
+之前的 FastAPI 服务。ESP32-C61 onepage 设备永远不会接触到云端 API key 或端点；
+它们通过一条 WebSocket 使用一套精简的 JSON + PCM 协议
+与本中继通信。
+
+部署：Ubuntu 一条命令或 Windows 安装包，两者最终都会落到管理页面（`/admin`），
+给出阅读器的 URL / Device ID / Token——参见 `DEPLOY.md`。
+
+```
+device ──WS /api/v1/voice/stream──▶ relay ── WSS ──▶ DashScope ASR (paraformer-realtime-v2)
+                                      │
+                                      └── HTTPS SSE ─▶ DashScope LLM (qwen-flash, OpenAI-compatible)
+```
+
+## 协议（v1）
+
+- 16 kHz 单声道 PCM s16le，40 ms 一帧（1280 字节），单次语音最长 30 s。
+- 设备 → 中继：`session.start` → `audio.start` → 二进制音频帧 →
+  `audio.end`（或 `session.cancel`）。
+- 中继 → 设备：`session.started`、`asr.partial`、`asr.final`、`llm.start`、
+  `llm.delta`、`llm.final`、`session.done`、`error`
+  （错误码：`BAD_PROTOCOL`、`UNAUTHORIZED`、`SERVER_OVERLOADED`、
+  `ASR_CONNECTION_ERROR`、`ASR_AUTH_ERROR`、`ASR_RATE_LIMITED`、
+  `ASR_NO_SPEECH`、`ASR_QUOTA_EXHAUSTED`……）。
+- `session.start` 的 `mode` 可选 `relay`（默认，ASR + LLM）或 `dictation`
+  （只返回 ASR transcript）；飞鸽传书的语音输入使用 `dictation`。
+- 带内错误不会关闭连接；协议/认证违规才会关闭。
+- 握手请求头：`Authorization: Bearer <token>`、`X-Device-Id`、
+  `X-Voice-Protocol: 1`。
+
+无需硬件即可运行的客户端：`python tools/test_client.py --pcm speech.wav`。
+
+## 认证（文档 17.5 节）
+
+`RELAY_DEVICE_TOKEN` 是共享 token；`RELAY_DEVICE_TOKENS` 可按
+`deviceId:token,...` 的形式为各设备固定专属 token。**一旦配置了设备映射，
+它就成为唯一认证来源**：只有映射中的 Device ID 能通过，共享 token 不再为
+未知 ID 兜底（共享 token 仅用于没有映射的部署）。`ALLOWED_DEVICE_IDS`
+可再对设备 id 做白名单。两者都为空时拒绝以开放模式运行。使用
+`/admin/devices` 后，非空注册表优先于此处的环境变量规则（见“服务端设备管理”）。
+`RELAY_ADMIN_TOKEN` 启用管理页面；`POST /api/v1/chat`（文本问答应答，见下）
+同时接受管理员 token 与设备 token。两者都未配置时该端点拒绝请求。
+
+## 多台 onepage 设备（多设备设计）
+
+多台 onepage 设备连接到同一个中继；容量在三个层面上强制约束，
+使一台行为异常的设备不会饿死其他设备：
+
+| 层级 | 配置项（env） | 默认值 | 超限后 → |
+|---|---|---|---|
+| 打开的设备 socket 数 | `MAX_WS_CONNECTIONS` | 32 | 新 socket 先被接受、随即以 WS code 1013（稍后重试）关闭；`ws_rejected_total{reason="connections"}` |
+| 并发语音会话数（所有设备） | `MAX_CONCURRENT_SESSIONS` | 4 | 带内 `error: SERVER_OVERLOADED`；`ws_rejected_total{reason="sessions"}` |
+| 单设备并发会话数 | `MAX_SESSIONS_PER_DEVICE` | 1 | 带内 `error: SERVER_OVERLOADED`；`ws_rejected_total{reason="device_sessions"}` |
+
+为多设备运行设计时考虑的要点：
+
+- `MAX_CONCURRENT_SESSIONS` 是 DashScope 配额的调节阀：每个活跃会话占用一条
+  上游 ASR WebSocket 和一个 LLM HTTPS 请求。应保持在账户对应 ASR 模型的
+  并发配额以内；取值 4 已经过压测验证（4 个客户端 × 5 轮，
+  零失败）。
+- 单设备限额及所有日志所用的设备身份，是经过认证的 `X-Device-Id` 请求头，
+  而不是 `session.start` 内部的 `deviceId`
+  （设备无法靠改名规避自己的限额）。
+- 无会话运行时，空闲 socket 会在 `SESSION_IDLE_TIMEOUT_SECONDS`（60 s）后被回收，
+  因此被遗弃的连接不会占用限额。
+- `SERVER_OVERLOADED` 可重试：设备会显示“语音中继繁忙”，本轮直接失败，
+  不提供任何设备端兜底路径（relay 是唯一的云端后端）。
+- 中继刻意设计为单进程：会话、限额与指标都在内存中且保持一致。
+  若将来需要水平扩展，请用 nginx 的 sticky 路由保持亲和性
+  （一台设备 → 一个实例），或把计数/限额迁到 Redis；
+  不要在简单轮询之后运行多个 uvicorn worker——
+  那样限额会变成按 worker 计，
+  聚合指标也会重复计数。
+
+多设备验证用的压测：
+
+```bash
+RELAY_DEVICE_TOKEN=... python tools/load_test.py --pcm speech.pcm \
+    --clients 4 --rounds 5            # 4 devices, one reused socket each
+```
+
+## Provider（提供方）
+
+`ASR_PROVIDER`/`LLM_PROVIDER` 取值为 `mock`（开发用，无上游）或真实的
+DashScope 适配器。真实凭据只存放在
+`/etc/reading-companion/voice-relay.env`（`DASHSCOPE_API_KEY`、
+`DASHSCOPE_WORKSPACE_ID`、`DASHSCOPE_REGION`）；参见
+`deploy/voice-relay.env.example`。启动日志会为每个 provider 打印完整的
+上游契约（即“契约门”）；每次改动后都要验证：
+
+```bash
+journalctl -u reading-companion-relay --since "5 min ago" | grep contracts
+curl -s localhost:8000/readyz      # {"status":"ready","asr":"configured",...}
+```
+
+## 文本问答（`POST /api/v1/chat`）
+
+设备上所有“不经过麦克风”的 AI 文本都走这一个阻塞式端点：
+Ask AI（阅读中提问）、字典/词汇卡片（`mode="dict"` / `mode="word"`）、
+语音助手的手动发送与历史摘要、AI 书童。请求体：
+
+```json
+{"requestId":"...","deviceId":"...","text":"...","stream":false,"maxTokens":512,"mode":"ask"}
+```
+
+`stream=false`（固件使用的方式）返回
+`{"requestId","text","usage":{"inputTokens","outputTokens"}}`；
+`stream=true` 走 SSE（`llm.start` / `llm.delta` / `session.done` / `error`）。
+`mode` 为空时按普通对话处理，`dict`/`word` 使用卡片提示词与较小的输出上限。
+
+认证：管理员 token 与设备 token 均可用（与 `/api/v1/image` 相同）；
+两者都未配置时端点拒绝。设备侧没有直连模型或其它后端的路径——
+relay 不可达即本轮失败，界面显示明确的错误文案。
+
+## 字典卡片（离线数据）
+
+阅读器的字典卡片（`POST /api/v1/chat`，`mode="dict"`，由 `DictionaryActivity` 发送）
+由 `dict-data/` 中的离线数据提供，而非来自模型：读音/部首/笔画来自 Unihan，
+义项与组词来自 chinese-xinhua（MIT），并按 jieba 词频（MIT）排序；
+`dict-data/META.json` 记录各数据源的 SHA-256 与许可证。
+数据中未收录的字会得到一张明确的 `未收录` 卡片——
+不做任何猜测。
+
+```
+【字】的
+【拼音】de、dì、dí
+【部首笔画】白·8画
+【释义】de：用在词或词组后表明形容词性美丽的。 dí：真实，实在的确。的当（dàng）。……
+【组词】目的、真的、似的、目的地、有的是
+```
+
+（原文在释义内部用 `～` 代替词条字；中继在发送前会替换为实际的字。
+选中非汉字时会得到一张
+`无法识别 / 请输入单个汉字` 卡片。）
+
+设置项：`DICT_SOURCE=local`（默认）或 `llm`（模型生成卡片——引入本地数据之前的行为；
+可能含有事实错误）。若设为 `DICT_SOURCE=local` 但数据缺失，中继会记录错误并降级到
+LLM 路径；`/readyz` 报告
+`"dict": "local" | "local_missing_data" | "llm"`。
+
+数据源更新后重建（需要三个源文件；
+脚本仅用标准库）：
+
+```bash
+python tools/build_dict_data.py \
+    --word  xinhua/data/word.json --ci xinhua/data/ci.json \
+    --unihan Unihan.zip --jieba dict.txt \
+    --out dict-data
+python -m pytest -q tests/test_dict_source.py   # rendering/lookup invariants
+```
+
+`dict-data/` 在首次查询时读入一次，从不写入（systemd 单元以
+`ProtectSystem=strict` 运行）。`tools/make-package.sh` 要求包含该目录，
+`deploy/install.sh` 会把它复制进每个 release；从字典功能之前的旧安装包
+升级的运维人员，其 env 文件会自动回填
+`DICT_SOURCE=local`。
+
+## 文生图卡片
+
+`POST /api/v1/image`（`{"text": "<prompt>"}`）为阅读器屏幕生成一张图片，
+返回元数据加一句等待提示语；图片本身从响应中的资源 URL 获取
+（同样的 token 认证）：
+
+```bash
+TOKEN=...  # device or admin token
+curl -s -H "Authorization: Bearer $TOKEN" -H "X-Device-Id: debug-client" \
+     -H 'Content-Type: application/json' \
+     -d '{"text":"山间小屋，炊烟袅袅"}' localhost:8000/api/v1/image | jq .
+# {"requestId":"...","text":"正在铺开画纸……",
+#  "image":{"id":"<16 hex>","url":"/api/v1/image/<id>","width":480,"height":800,
+#           "bytes":48062,"format":"bmp"},"usage":{"seconds":2.5}}
+curl -s -H "Authorization: Bearer $TOKEN" -H "X-Device-Id: debug-client" \
+     -o /tmp/card.bmp localhost:8000/api/v1/image/<id>
+```
+
+服务器用 Pillow 完成全部转换：源图 → 适配面板尺寸（默认 480x800 竖屏）→
+自动对比度 → Floyd-Steinberg 抖动 → **1-bit BMP，恰好 48,062 字节**
+（62 字节文件头 + 48,000 字节位图）。
+这正是固件 Bitmap 读取器接受的格式
+（`lib/GfxRenderer/BitmapHelpers.cpp`），因此设备只需把行数据流式写入
+帧缓冲——无需在设备端解码
+（在 ESP32-C61 上解 JPEG 约需 5-10 s；这条路径几乎瞬时完成）。
+
+Provider：`T2I_PROVIDER=mock`（默认）在本地绘制一张确定性的占位图——
+不调用云端、零成本，因此可在花费任何生图配额之前对完整的接口/资源路径
+做端到端测试。`T2I_PROVIDER=dashscope` 提交 wanx 文生图任务
+（`T2I_MODEL`，默认 `wanx2.1-t2i-turbo`）并轮询直至完成；需要
+`DASHSCOPE_API_KEY`，缺少时以 `T2I_NOT_CONFIGURED` 拒绝关闭。
+`T2I_PROVIDER=openai` 向 `<T2I_BASE_URL>/images/generations` POST
+`{"model","prompt","size","response_format":"b64_json"}`，接受内联
+`b64_json` 或需要下载的 `url`，需要 `T2I_BASE_URL` + `T2I_API_KEY`
+（缺少时同样拒绝关闭）——覆盖 OpenAI 及任何 OpenAI 兼容的图像网关
+（SiliconFlow、vLLM/SD-WebUI 适配器等）。
+`T2I_SIZE` 是 provider 的生成尺寸，格式 `W*H`（默认 `768*1280`），
+会转换为 OpenAI 的 `WxH`。内容审核拒绝在所有 provider 上都以
+`T2I_REJECTED` 返回。其他调节项：`T2I_TIMEOUT_S`、
+`T2I_POLL_INTERVAL_S`、`T2I_MOCK_DELAY_S`、`T2I_WIDTH`/`T2I_HEIGHT`、
+`T2I_ASSET_TTL_S`（资源在此时间后删除，默认 24 小时）。
+`T2I_ASSET_DIR` 必须位于 systemd 沙箱的可写路径内——
+`install.sh` 将其固定为
+`/opt/reading-companion-relay/run/t2i`。
+
+文本与语音的 provider 彼此独立：可以让 `T2I_PROVIDER=dashscope` 而 ASR/LLM
+保持 mock，反之亦然。`/readyz` 报告
+`"t2i": "mock" | "configured" | "missing_config"`。
+
+## 词汇学习 API（/api/v1/learning/）
+
+百词斩词卡与复习的数据面。设备 token 认证（`Authorization` +
+`X-Device-Id`，与其它端点一致）；**nginx 必须代理
+`/api/v1/learning/`**——dev/prod 两份 conf 均已包含，未配置时 8080 会
+落进兜底 `location /` 返回 404（表现为设备"同步失败"）。
+
+| 方法 | 路径 | 说明 |
+|---|---|---|
+| GET | `/api/v1/learning/words?state=&limit=` | 列词本；不带 `state` 或 `state=all`=全部（每行含 `state` 字段），`state=active/removed` 过滤，其他值 → 400 `invalid_state`；limit≤500 |
+| POST | `/api/v1/learning/words` | 批量加词 `{"words":[...],"source":"lookup\|review"}` → `{ok,accepted,added}`；重试幂等，重新加入会把 `removed` 墓碑翻回 `active` |
+| POST | `/api/v1/learning/words/remove` | 批量移出 `{"words":[...]}` → `{ok,accepted,removed}`；仅翻转 `active→removed`，复习历史保留 |
+| GET | `/api/v1/learning/review?limit=` | 到期待复习队列 → `{count,due,words:[{word,addedAt,source,lastRating,lastReviewedAt,dueAt}]}`；limit≤50，`due` 为总到期数 |
+| POST | `/api/v1/learning/review` | 评分事件 `{"word","rating"(1-4),"clientEventId"}` → `{ok,duplicate}`；`clientEventId` UNIQUE 幂等，缺词自动建（source=review） |
+
+- **调度**：固定间隔 `rating 1/2/3/4 → 1h/1d/3d/7d`（忘记/模糊/认识/简单）；
+  从未复习的词立即到期；排序 `(dueAt, word)`；仅 `state='active'` 入队。
+- **移出语义**：设备先本地落盘，再推 remove；离线移出在设备端排队（tombstone
+  同 add 一样 pending-until-ack），服务器只保留状态不删行，便于审计与重建。
+- 批量上限 `LEARNING_MAX_WORD_BATCH = 200`（设备端另按 16 词/批拆包）。
+- **日志**（journalctl -u reading-companion-relay）：`learning word sync/removal/list`、
+  `learning review queue`（served/due）、`learning review event`（word/rating/duplicate）、
+  `learning auth rejected`（401/403 原因，WARNING）、`llm card served/failed`
+  （词卡 mode=word/dict-llm 的词预览与输出长度）。设备每次学习动作都应留下一行。
+- 未来若把固定间隔换成 FSRS，只动 `LearningStore.review_queue` 的到期计算，
+  以上契约（路径/字段/幂等）保持不变。
+
+```bash
+TOKEN=...
+curl -s -H "Authorization: Bearer $TOKEN" -H "X-Device-Id: reading-companion-001" \
+     -H 'Content-Type: application/json' -d '{"words":["abandon"]}' \
+     localhost:8080/api/v1/learning/words | jq .       # 经 nginx 验证代理
+curl -s -H "Authorization: Bearer $TOKEN" -H "X-Device-Id: reading-companion-001" \
+     "localhost:8080/api/v1/learning/review?limit=10" | jq .
+```
+
+## 番茄钟 API（/api/v1/pomodoro/）
+
+番茄钟专注会话的数据面（统计/热力图数据源，非计时器本体——计时在设备
+本地跑）。设备 token 认证（`Authorization` + `X-Device-Id`，与其它端点
+一致）；**nginx 必须代理 `/api/v1/pomodoro/`**——dev/prod 两份 conf 均已
+包含，未配置时 8080 会落进兜底 `location /` 返回 404。
+
+| 方法 | 路径 | 说明 |
+|---|---|---|
+| POST | `/api/v1/pomodoro/sessions` | 批量上报完成会话 `{"sessions":[{clientEventId,kind,startedAt,endedAt,minutes,completed}]}` → `{ok,accepted,stored}`；`clientEventId` UNIQUE 幂等，重试 `stored`=0 |
+| GET | `/api/v1/pomodoro/stats?days=30` | 按日专注聚合 → `{days:[{date,focusMinutes,sessions,completed}],totals:{...}}`；仅 `kind=work` 计入 focusMinutes，days 钳制 1-366 |
+
+- **kind**：`work` / `break` / `long_break`（`MIN_MINUTES=1`、`MAX_MINUTES=180`）。
+  休息段照存但不计入 focusMinutes——设备端可重建完整周期，统计只看专注。
+- **completed**：`false` = 用户提前结束（部分会话照实上报 minutes）。
+- **日期分组**：按 `startedAt` 的日期前缀分组（设备本地日），窗口下界用
+  服务器 UTC 日——边界可差数小时，对阅读友好型统计可接受，服务器不掺和
+  设备时区。稀疏返回：无 work 会话的日期不出现，客户端自行补零。
+- 批量上限 `POMODORO_MAX_SESSION_BATCH = 50`。
+- **日志**（journalctl -u reading-companion-relay）：`pomodoro session
+  sync`（requested/stored）、`pomodoro stats`（days/rows）、`pomodoro auth
+  rejected`（401/403 原因，WARNING）。
+- **能力键**：`GET /api/v1/device/config` → `features.pomodoro`。固件据此
+  隐藏番茄钟菜单（旧 relay 无此键 = 功能关闭）。
+- 幂等与学习侧同一模式：设备离线积压可整批重发，UNIQUE(client_event_id)
+  兜底，无需应用层去重簿记。
+
+```bash
+TOKEN=...
+curl -s -H "Authorization: Bearer $TOKEN" -H "X-Device-Id: reading-companion-001" \
+     -H 'Content-Type: application/json' \
+     -d '{"sessions":[{"clientEventId":"p1","kind":"work","startedAt":"2026-10-29T09:00:00+08:00","endedAt":"2026-10-29T09:25:00+08:00","minutes":25,"completed":true}]}' \
+     localhost:8080/api/v1/pomodoro/sessions | jq .   # 经 nginx 验证代理
+curl -s -H "Authorization: Bearer $TOKEN" -H "X-Device-Id: reading-companion-001" \
+     "localhost:8080/api/v1/pomodoro/stats?days=30" | jq .
+```
+
+## 飞鸽传书 API（/api/v1/pigeon/）
+
+设备间消息的数据面：持久化存储转发 + 进程内在线状态。设备和其它数据端点
+使用同一套 token 认证（`Authorization: Bearer` + `X-Device-Id`）；
+**nginx 必须代理 `/api/v1/pigeon/`**——dev/prod 两份 conf 均已包含。
+消息不经过 DashScope，也不依赖任何第三方消息服务。
+
+| 方法 | 路径 | 说明 |
+|---|---|---|
+| POST | `/api/v1/pigeon/heartbeat` | 注册/刷新设备 `{"name":"书房"}` → `{ok,self,devices,unread}`；`devices` 同时给出在线/离线联系人与 `online` 标记 |
+| POST | `/api/v1/pigeon/send` | `{"to":"reading-companion-002","text":"...","clientEventId":"..."}` → `{ok,message,duplicate}`；同一 `clientEventId` 重试幂等 |
+| GET | `/api/v1/pigeon/inbox?after=<id>&limit=50` | 拉取 `id > after` 的未读/新消息 → `{messages,unread,latestId}`；`limit` 1-100 |
+| POST | `/api/v1/pigeon/ack` | `{"ids":[1,2]}` 或 `{"upToId":42}` → `{ok,acked}`；标记已读，`upToId` 同时覆盖更早消息 |
+| GET | `/api/v1/pigeon/history?peer=<id>&limit=50` | 双向会话历史（按 id 升序）→ `{peer,messages}`；`limit` 1-100 |
+| POST | `/api/v1/pigeon/clear?peer=<id>` | **双向硬删除**该会话 → `{ok,deleted}`；无墓碑，双方设备都会失去这些消息 |
+
+- **设备注册**：每次 heartbeat 写入 `devices` 表并刷新进程内 presence；
+  presence TTL 默认 45 秒（`PIGEON_PRESENCE_TTL_SECONDS`），relay 重启后清空，
+  设备下次 heartbeat 自动恢复。已注册设备即使离线也可被选为收件人，
+  消息留到对方上线；`ALLOWED_DEVICE_IDS` / `RELAY_DEVICE_TOKENS` 中预置的
+  id 无需先上线即可寻址。
+- **收发限制**：正文 UTF-8 最多 512 字节（`PIGEON_MAX_TEXT_BYTES`）；
+  每个发送方 30 条/分钟（`PIGEON_RATE_LIMIT_PER_MINUTE`，超限 429
+  `rate_limited`）；空文本、发给自己、未注册收件人、`clientEventId` 超过
+  80 字符均返回 400/404。
+- **保留**：发送时清理超过 `PIGEON_MESSAGE_TTL_DAYS`（默认 7 天）的消息，
+  并只保留每个接收方最近 `PIGEON_MAX_MESSAGES_PER_RECIPIENT`（默认 100）条。
+  设备端不保存长期聊天记录，打开会话时以 `/history` 为准。
+- **清空语义**：`clear` 删除双方之间全部消息，没有“仅本机删除”选项；
+  设备端确认框会明确提示双方都会删除。清空后 relay 不再返回旧消息，
+  对方下次进入会话也会看到空历史。
+- **数据文件**：`pigeon.db`（SQLite + WAL）位于 `RELAY_PIGEON_DIR`，
+  默认 `run/pigeon/`；运维备份/清理见 [DEPLOY.md](./DEPLOY.md)。
+- **日志**（journalctl -u reading-companion-relay）：`pigeon heartbeat`
+  （deviceId/deviceName）、`pigeon send`（to/messageId/duplicate/bytes）、
+  `pigeon auth rejected`（401/403 原因，WARNING）、`pigeon send rate limited`
+  （WARNING）。
+- **能力键**：`GET /api/v1/device/config` → `features.pigeon`。固件据此
+  显示飞鸽传书入口；旧 relay 无此键时入口隐藏。
+
+```bash
+TOKEN=...
+AUTH=(-H "Authorization: Bearer $TOKEN" -H "X-Device-Id: reading-companion-001")
+
+curl -s "${AUTH[@]}" -H 'Content-Type: application/json' \
+     -d '{"name":"书房"}' localhost:8080/api/v1/pigeon/heartbeat | jq .
+
+curl -s "${AUTH[@]}" -H 'Content-Type: application/json' \
+     -d '{"to":"reading-companion-002","text":"在吗？","clientEventId":"demo-1"}' \
+     localhost:8080/api/v1/pigeon/send | jq .
+
+curl -s "${AUTH[@]}" \
+     'localhost:8080/api/v1/pigeon/history?peer=reading-companion-002' | jq .
+
+curl -s -X POST "${AUTH[@]}" \
+     'localhost:8080/api/v1/pigeon/clear?peer=reading-companion-002' | jq .
+```
+
+## AI 原生阅读（`/api/v1/books` / `reader/query` / `sync`）
+
+V1 契约全文见 [docs/ai-native/api-v1.md](../docs/ai-native/api-v1.md)。三条链路都复用现有设备认证：`Authorization: Bearer <device-token>` + `X-Device-Id`。
+
+### 书籍入库与段落索引
+
+- `POST /api/v1/books`：`multipart/form-data`，字段 `file`（EPUB/TXT，默认 ≤ 64 MiB）、`title`、`author`。返回 `202`（新书）或 `200`（同 SHA-256 已存在）。解析默认后台进行。
+- `GET /api/v1/books/{id}`、`GET /api/v1/books/by-hash/{sha256}`：设备登记书籍身份；未入库返回 `404 BOOK_NOT_FOUND`，设备降级为无引用问答。
+- `GET /api/v1/books/{id}/processing`：`pending/parsing/indexing/ready/failed` + 进度。
+- `GET /api/v1/books/{id}/chapters`、`GET /api/v1/books/{id}/passages?spine_index=&limit=&after=`：调试与引用核对。
+
+`passage_id = <book_id>:<spine>:<p|l><block_index>`，其中 `book_id` 是文件 SHA-256 的前 16 位；`<p>/<li>` 按 spine 文档逐个计数。规则冻结在契约文档，解析器与固件必须一致。
+
+### 引用问答
+
+`POST /api/v1/reader/query` 请求 `book_id + passage_ids/selected_text + question + intent + context_scope`；`context_scope` 支持 `selection`、`current_passage`、`current_chapter`。服务端检索上下文、调用 LLM，并把输出规范化为：
+
+```json
+{"segments":[{"source":"book|external|inference","text":"...","citations":[{"passage_id":"...","spine_index":0,"quote":"..."}]}]}
+```
+
+- `book` 段必须至少有一条通过校验的引用；`quote` 归一化后必须是所送段落原文的子串，否则丢弃并把该段降级为 `inference`（`CITATION_DROPPED`）。
+- 模型输出不是 JSON 时整段降级为 `inference`（`MODEL_OUTPUT_NOT_JSON`）。设备只按 `source` 渲染 `[书中原文]/[外部补充]/[推断]`，不得自行改写标签。
+- `LLM_PROVIDER=mock` 只用于协议联调；要得到真实结构化回答需配置 DashScope/兼容 provider。
+
+### 离线同步
+
+- `POST /api/v1/sync/push`：每批 ≤ 50 条，支持 `annotation.create/delete`、`note.create/delete`、`ai_result.create`。`op_id` 唯一约束保证重试幂等；重复返回 `duplicate`，同实体不同内容返回 `conflict`（不覆盖），非法字段返回 `rejected`。
+- `GET /api/v1/sync/pull?device_id=&cursor=&limit=`：只返回本设备自己的变更，游标原样回传。
+- 阅读进度不在 V1 同步范围，继续走原 KOReader 同步。
+
+### 书库配置与工作台
+
+```bash
+RELAY_LIBRARY_DIR=/opt/reading-companion-relay/run/library
+#MAX_BOOK_BYTES=67108864
+#BOOK_INGEST_SYNC=false
+#READER_CONTEXT_CHAR_BUDGET=8000
+#READER_MAX_OUTPUT_TOKENS=512
+#READER_MAX_PASSAGES=8
+#READER_MAX_SELECTED_BYTES=4000
+#SYNC_BATCH_MAX_OPS=50
+```
+
+`/admin` 页面新增“阅读书库”（上传、索引状态、软删除）与“笔记与引用”（只读）卡片，复用 admin token；`/admin` 仍只允许本机或 `?token=` 访问。nginx 示例已为 `/api/v1/books` 放宽到 70m body，并为 `/api/v1/reader/`、`/api/v1/sync/` 增加代理规则。
+
+## 服务端设备管理（/admin/devices）
+
+relay 可以作为设备配置的单一来源：在 `/admin` 的“设备管理”中新增设备，保存
+Device ID、Relay URL 和 Token。设备仍用现有的
+`CloudConfig`（Relay URL / Token / Device ID）做首次认证，之后访问
+`/api/v1/device/config` 拉取更新；固件只在值变化时写 NVS。
+
+- 设备注册表在 `RELAY_DEVICE_DIR/devices.json`（默认 `run/devices`，0600），
+  生产安装脚本会放在 `/opt/reading-companion-relay/run/devices`。
+- **注册表一旦非空即成为设备鉴权权威**：未登记的 Device ID 会被拒绝，环境变量
+  `RELAY_DEVICE_TOKEN(S)` / `ALLOWED_DEVICE_IDS` 不再用于这些设备。迁移前先把
+  所有现有设备加入 `/admin/devices`。
+- 修改 Token 后旧 Token 保留 15 分钟，设备可在过渡期内拉取新 Token。
+- 设备配置接口返回的 `relay.url` / `relay.deviceId` / `relay.token` 为空表示
+  “保留 NVS 原值”。
+
+```bash
+# 查看设备（仅本机 / 或带 X-Admin-Token）
+curl -s localhost:8080/admin/devices | jq .
+# 新增或更新（新增留空 token 会自动生成）
+curl -s -X POST localhost:8080/admin/devices \
+  -H 'Content-Type: application/json' \
+  -d '{"deviceId":"onepage-001","name":"客厅","relayUrl":"ws://host:8080/api/v1/voice/stream"}'
+# 拉取设备配置（示例 Token 以管理页实际值为准）
+curl -s localhost:8080/api/v1/device/config \
+  -H 'Authorization: Bearer <device-token>' -H 'X-Device-Id: onepage-001' | jq .
+```
+
+## 行情快照 API（/api/v1/markets/）
+
+设备端 Home > 行情 展示 A 股/港股/美股指数与大宗商品，并可按代码查询个股。
+relay 只做只读代理和短期缓存，不下单、不生成价格。数据源：A 股/港股走腾讯
+（`web.ifzq.gtimg.cn`，分时与不复权日线），商品与美股 1mo/1y 优先走 Yahoo
+（`query1.finance.yahoo.com`）。美股指数 1d 分时优先走 CNBC
+`ts-api.cnbc.com/harmony/app/charts/1D.json`（gzip 压缩，含最近两个交易日
+04:00–20:00 的 1 分钟线；relay 只保留 09:30–16:00 常规时段，解析结果缓存
+5 分钟，时间戳按 `America/New_York` 解析）。Yahoo 不可达时（例如中国大陆网络）
+自动回退：美股 1d 再试东方财富 `push2his.eastmoney.com/api/qt/stock/trends2/get`
+（公开 `ut` 令牌，需带 `Referer: https://quote.eastmoney.com/` 与浏览器
+`User-Agent`——东方财富会对脚本化的 UA 直接断连；指数 secid
+`100.SPX`/`100.NDX`/`100.DJIA`，个股先试 `105.<ticker>` 再试 `106.<ticker>`，
+服务端按 `Asia/Shanghai` 解析时间戳；其边缘节点会无响应地掐断云主机出口 IP，
+因此只作兜底），失败再退腾讯 `qt.gtimg.cn` 的当日
+末点；美股指数 1mo/1y 走腾讯 `web.ifzq.gtimg.cn`，个股 1mo/1y 走新浪
+`US_MinKService.getDailyK`，商品走新浪 `hq.sinajs.cn`/`GlobalFuturesService`。
+每张卡片都带 `source`（`cnbc`/`yahoo`/`tencent`/`sina`/`eastmoney`），如实反映
+本次取数的上游。若上述上游同时不可达且美股休市，美股
+1d 卡片可能只剩腾讯的单个末点；其余周期不受影响。公开行情不保证实时，所有
+卡片都标记为延时。
+
+接口需要设备鉴权（`Authorization: Bearer <device-token>` + `X-Device-Id`）：
+
+| GET | 说明 |
+|---|---|
+| `/api/v1/markets/board?group=cn\|hk\|us\|commodity` | 固定看板，返回该组最多 4 张卡片；每张含 `price/change/changePct/previousClose/high/low/asOf/points` |
+| `/api/v1/markets/chart?instrument=sse&period=1d\|1mo\|1y` | 指数/商品的单张卡片与曲线（1d 用分时，1mo/1y 用日线，点数压缩到 ≤96） |
+| `/api/v1/markets/lookup?code=600519&period=1d` | 按代码查个股：`600519`/`SH600519`、`00700`/`HK00700`、`AAPL`/`US.AAPL`；也支持 `BRK.B` |
+
+```bash
+AUTH=(-H "Authorization: Bearer <device-token>" -H "X-Device-Id: reading-companion-001")
+curl -s "${AUTH[@]}" 'localhost:8080/api/v1/markets/board?group=cn' | jq .
+curl -s "${AUTH[@]}" 'localhost:8080/api/v1/markets/chart?instrument=gold&period=1y' | jq .
+curl -s "${AUTH[@]}" 'localhost:8080/api/v1/markets/lookup?code=600519' | jq .
+```
+
+**nginx 必须代理 `/api/v1/markets/`**——dev/prod 两份 conf 均已包含，部署后可用
+`localhost:8080/...` 冒烟。缓存：1d 报价默认 60 秒（`MARKET_QUOTE_TTL_S`），
+1mo/1y 曲线 15 分钟（`MARKET_CHART_TTL_S`）；上游失败时回退最近缓存并标记
+`stale`，最长保留 24 小时（`MARKET_STALE_S`）。上游限流返回
+`rate_limited`，不可用返回 `upstream_unavailable`，非法代码/组/周期返回 400。
+行情仅供参考，请勿用于交易。
+
+## 万年历：天气 API（`/api/v1/weather`）
+
+首页「万年历」页的 5 日预报。设备没有城市设置项：它只问“这里天气”，relay 按
+**访问方公网 IP** 定位。定位顺序 `ip.sb` → `ipinfo.io` → `ip-api`——顺序是可达性
+事实而非偏好：生产主机（上海）上 `ip-api.com` 完全不通、`api.ipify.org` 返回空，
+`ip.sb`/`ipinfo.io` 正常。设备与 relay 同一局域网时（取到私网地址），改用 relay
+自己的出口地址。
+
+天气上游是 open-meteo（免费、无需 key）。返回 `weather_code` 已折叠成 8 个
+类别（`w`：0 晴 / 1 多云 / 2 阴 / 3 雾 / 4 小雨 / 5 大雨 / 6 雪 / 7 雷），
+固件只需一张 8 项文本表。
+
+| GET | 说明 |
+|---|---|
+| `/api/v1/weather?days=5` | `{ok,city,stamp,stale,current:{t,w},days:[{d,hi,lo,w,rain}]}` |
+
+```bash
+AUTH=(-H "Authorization: Bearer <device-token>" -H "X-Device-Id: reading-companion-001")
+curl -s "${AUTH[@]}" 'localhost:8080/api/v1/weather' | jq .
+# 模拟某个公网地址（定位南京/杭州等）
+curl -s "${AUTH[@]}" -H 'X-Forwarded-For: 223.5.5.5' 'localhost:8080/api/v1/weather' | jq .city
+```
+
+缓存按**解析后的城市**键控，不按 IP（同城多 IP 不会反复解析）：预报 6 小时
+（`WEATHER_TTL_S`）、地理结果 24 小时。上游失败时回退最近预报并标 `stale`，
+最长 24 小时（`WEATHER_STALE_S`）；地理全失败返回 502 `geo_failed`。
+固定点位可用 `WEATHER_LAT`/`WEATHER_LON` 跳过定位。
+
+## 朗读与发音 API（`WS /api/v1/tts`）
+
+固件没有音频解码器（`HalAudio::writePcm` 只吃 16 kHz int16 PCM），edge-tts 只能
+输出 MP3（其 `outputFormat` 硬编码为 `audio-24khz-48kbitrate-mono-mp3`），所以
+**relay 负责解码与重采样**，用 pip 包 `miniaudio`（自带解码器，无需系统 ffmpeg）。
+
+协议（一条 WS 可连续发多次 `tts.start`，省掉每页重握手的 TLS 开销）：
+
+```
+设备 → {"type":"tts.start","id":7,"text":"…","lang":"zh"|"en"}
+relay → {"type":"tts.meta","id":7,"rate":16000,"ch":1,"bits":16,"voice":"…","truncated":false}
+relay → <binary, s16le 单声道 16 kHz, 8 KB/帧>
+relay → {"type":"tts.end","id":7,"ms":6192}
+relay → {"type":"tts.error","id":7,"code":"bad_text|upstream_failed|decode_failed|unavailable"}
+```
+
+文本按标点切成 ~60 字符的段（`TTS_SEGMENT_CHARS`），先用流水线合成好、再按设备
+消费速度发送：段间衔接因此听不出来，首帧延迟约 1–2 秒。停止播放 = 设备直接关
+socket，下一次发送会立即失败并取消后续合成。
+
+音色：`TTS_VOICE_ZH`（默认 `zh-CN-XiaoxiaoNeural`）、`TTS_VOICE_EN`
+（默认 `en-US-AriaNeural`）。设备按卡片语言选音色：汉字卡用中文，生词卡/复习用美音。
+
+```bash
+# 冒烟：一条命令听完整段（需要本机有音频解码器，仅验证链路）
+cd /opt/reading-companion-relay/current && .venv/bin/python - <<'PY'
+import asyncio, json, os, websockets
+async def main():
+    h = {"Authorization": "Bearer " + open('/etc/reading-companion/voice-relay.env').read().split('RELAY_DEVICE_TOKEN=')[1].split()[0]}
+    async with websockets.connect("ws://127.0.0.1:8000/api/v1/tts", additional_headers=h) as ws:
+        await ws.send(json.dumps({"type":"tts.start","id":1,"text":"床前明月光","lang":"zh"}))
+        print(await ws.recv())
+asyncio.run(main())
+PY
+```
+
+**nginx 必须代理 `/api/v1/weather` 与 `/api/v1/tts`**（`/api/v1/tts` 需
+`Upgrade`/`Connection` 与 `proxy_buffering off`）——dev/prod 两份 conf 均已包含。
+依赖只走 pip（`edge-tts`、`miniaudio`），`requirements.txt` 已列出；未安装时
+`/readyz` 报 `tts: missing_deps`，其余功能不受影响。
+
+> ⚠️ edge-tts 走的是微软未公开的朗读接口，可能被限流或失效。失效时设备会显示
+> 具体错误码，不会静默降级。
+
+## 部署与回滚
+
+完整运维手册（中文）：[VoiceRelay 部署手册](./DEPLOY.md)——打包、安装、
+env/密钥、升级、回滚、验证、dev/prod 模式、安全基线。
+
+```bash
+# package: build a self-contained tarball under dist/
+bash tools/make-package.sh
+# install: unpack on the server and run the installer
+tar xzf voice-relay-<TS>.tar.gz -C /tmp
+sudo bash /tmp/voice-relay-<TS>/deploy/install.sh --source /tmp/voice-relay-<TS> --mode dev
+# or from a source checkout directly
+sudo bash deploy/install.sh --source /tmp/relay-src --mode dev
+# rollback (<old-TS> from /opt/reading-companion-relay/releases/)
+ln -sfn /opt/reading-companion-relay/releases/<old-TS> /opt/reading-companion-relay/current
+systemctl restart reading-companion-relay
+```
+
+`install.sh` 是幂等的：创建新的时间戳 release、保留环境文件（之后新增的键会
+自动回填）、管理 nginx 站点、冒烟测试、清理旧 release（保留 5 个）。
+模式：`dev`（经 nginx 在 :8080 上走 ws://）和 `prod`（在云控制台放行端口且
+有域名后，在 443 上走 wss://）。
+
+DashScope 配置：首次交互式运行时，安装器会提示输入 API key（留空 = mock 模式）；
+任何一次运行都可传 `--dashscope-key sk-...` 以非交互方式配置或轮换
+（`--asr-model`、`--llm-model`、`--dashscope-region`、`--device-id`、
+`--public-url` 均为可选覆盖项）。
+运行结束会打印 Relay URL / Device ID / Token，粘贴到阅读器的 Web UI
+（Settings > Voice Relay）即可。阅读器无需其他配置：relay 是设备
+唯一的云端后端，语音、AI 助手、AI 书童、字典卡片、语音书签与飞鸽传书都走它。
+
+## 可观测性
+
+- `GET /metrics`（仅内网）：`voice_sessions_total{result}`、
+  `voice_sessions_active`、`ws_connections_active`、`ws_rejected_total{reason}`、
+  `voice_latency_ms{stage}`（`asrFirstPartial`、`asrFinal`、`llmFirstToken`、
+  `llmFinal`、`visibleTotal`）、`asr_requests_total`、`llm_requests_total`、
+  `websocket_disconnects_total{reason}`、`relay_process_rss_bytes`。
+- 结构化 JSON 日志，每个会话状态变化记录一条事件；脱敏过滤器保证 API key
+  绝不会被写入日志（即使调用方一时疏忽）。
+
+## 测试
+
+```bash
+pip install -r requirements-dev.txt
+python -m pytest -q          # protocol, session, auth, providers, capacity, mock e2e
+```
+
+真实凭据契约检查（无需硬件）：
+
+```bash
+python tools/test_client.py --pcm speech-16k.pcm --realtime
+```

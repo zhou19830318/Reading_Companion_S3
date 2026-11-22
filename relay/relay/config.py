@@ -1,0 +1,440 @@
+"""Relay configuration.
+
+All secrets come from the environment (root-only EnvironmentFile on the
+deployment host, see docs section 17.4). Nothing here is ever returned to a
+device or written to a log.
+"""
+
+from __future__ import annotations
+
+import os
+from pathlib import Path
+
+from pydantic import Field, field_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class Settings(BaseSettings):
+    model_config = SettingsConfigDict(env_file=None, extra="ignore", case_sensitive=True)
+
+    # --- process -----------------------------------------------------------
+    relay_env: str = Field("development", alias="RELAY_ENV")
+    relay_bind: str = Field("127.0.0.1", alias="RELAY_BIND")
+    relay_port: int = Field(8000, alias="RELAY_PORT")
+    relay_log_level: str = Field("INFO", alias="RELAY_LOG_LEVEL")
+    # Release identifier surfaced by /healthz (set by the deploy script).
+    relay_version: str = Field("0.1.0", alias="RELAY_VERSION")
+    # Optional reader-facing URL shown by /admin (set by install.sh when the
+    # host is reached through a domain / TLS proxy). Empty = derive from the
+    # detected LAN address and RELAY_PORT.
+    relay_public_url: str = Field("", alias="RELAY_PUBLIC_URL")
+
+    # --- device auth -------------------------------------------------------
+    # Single shared device token (first version) OR a per-device map,
+    # "deviceId:token,deviceId:token". A map entry wins over the shared token.
+    relay_device_token: str = Field("", alias="RELAY_DEVICE_TOKEN")
+    relay_device_tokens: str = Field("", alias="RELAY_DEVICE_TOKENS")
+    # Empty list = any device id with a valid token. Production should pin the
+    # real device id(s) so a leaked token cannot impersonate another device.
+    allowed_device_ids: str = Field("", alias="ALLOWED_DEVICE_IDS")
+    # Server-managed device registry (devices.json, mode 0600). The admin page
+    # writes per-device relay URL/token here; the environment above
+    # remains the fallback for unmanaged deployments. Production pins this to
+    # /opt/reading-companion-relay/run/devices so it survives release swaps.
+    relay_device_dir: str = Field("", alias="RELAY_DEVICE_DIR")
+    # Admin token for POST /api/v1/chat (text debug endpoint). Empty = the
+    # endpoint is disabled (returns 404), per docs section 17.5.4.
+    relay_admin_token: str = Field("", alias="RELAY_ADMIN_TOKEN")
+
+    # --- providers ---------------------------------------------------------
+    asr_provider: str = Field("mock", alias="ASR_PROVIDER")  # mock | dashscope
+    asr_model: str = Field("paraformer-realtime-v2", alias="ASR_MODEL")
+    asr_endpoint: str = Field("", alias="ASR_ENDPOINT")
+    asr_language_hints: str = Field("zh,en", alias="ASR_LANGUAGE_HINTS")
+    asr_chunk_ms: int = Field(100, alias="ASR_CHUNK_MS")
+
+    llm_provider: str = Field("mock", alias="LLM_PROVIDER")  # mock | dashscope
+    llm_model: str = Field("qwen-flash", alias="LLM_MODEL")
+    llm_base_url: str = Field("", alias="LLM_BASE_URL")
+    llm_system_prompt: str = Field(
+        "你是一个阅读伴侣，回答简洁自然，面向朗读场景。",
+        alias="LLM_SYSTEM_PROMPT",
+    )
+    # mode="dict" on /api/v1/chat: dictionary entries for the reader's
+    # character-lookup card. The device renders 【...】 lines as sections.
+    llm_dict_system_prompt: str = Field(
+        "你是一本简明新华字典。用户发来一个汉字，你只输出这个字的条目，严格用下面格式"
+        "（每项一行，不要 Markdown、不要解释、不要反问）：\n"
+        "【字】<字>\n"
+        "【拼音】<带声调的拼音；多音字按常用度列出，每个读音后跟一个词>\n"
+        "【部首笔画】<部首>·<笔画数>画\n"
+        "【释义】1. <释义> 2. <释义>\n"
+        "【组词】<词1>、<词2>、<词3>\n"
+        "【例句】<一句用到该字的话>\n"
+        "内容务必准确精炼：释义最多 3 条，组词 3~5 个，全文不超过 300 字；"
+        "若输入不是单个汉字，输出【字】无法识别。",
+        alias="LLM_DICT_SYSTEM_PROMPT",
+    )
+    dict_max_tokens: int = Field(600, alias="LLM_DICT_MAX_TOKENS")
+    # mode="word" on /api/v1/chat: English word cards for the reader's word
+    # lookup (百词斩 §5.1). The offline dictionary data only covers Hanzi, so
+    # this mode always renders through the LLM. Shares dict_max_tokens — both
+    # are compact cards on a 480-logical-px screen.
+    llm_word_system_prompt: str = Field(
+        "你是一本简明英汉词典。用户发来一个英语单词，你只输出这个单词的词条，严格用下面格式"
+        "（每项一行，不要 Markdown、不要解释、不要反问）：\n"
+        "【词】<原形单词>\n"
+        "【音标】/<英式音标>/\n"
+        "【词性】<v.、n.、adj. 等，多项用；隔开>\n"
+        "【释义】1. <中文释义> 2. <中文释义>\n"
+        "【例句】<一句英文例句>\n"
+        "【译文】<例句的中文翻译>\n"
+        "内容务必准确精炼：释义最多 3 条，全文不超过 300 字；"
+        "若输入不是英语单词，输出【词】无法识别。",
+        alias="LLM_WORD_SYSTEM_PROMPT",
+    )
+    llm_disable_thinking: bool = Field(True, alias="LLM_DISABLE_THINKING")
+
+    # --- dictionary cards ---------------------------------------------------
+    # "local" (default): serve the shipped offline data (tools/build_dict_data.py).
+    # "llm": generate cards with the dict system prompt (pre-local behavior).
+    dict_source: str = Field("local", alias="DICT_SOURCE")
+    # Empty = auto: $RELEASE/dict-data, then relay/dict-data in a checkout.
+    dict_data_dir: str = Field("", alias="DICT_DATA_DIR")
+
+    # --- vocabulary learning (百词斩) --------------------------------------
+    # Directory holding learning.db (SQLite, stdlib). Empty = "run/learning"
+    # under the working directory. Production pins this to
+    # /opt/reading-companion-relay/run/learning: run/ lives outside the
+    # swapped release tree and is already in the unit's ReadWritePaths, so
+    # the database survives upgrades and rollbacks without a unit change.
+    relay_learning_dir: str = Field("", alias="RELAY_LEARNING_DIR")
+
+    # --- pomodoro focus sessions --------------------------------------------
+    # Directory holding pomodoro.db (SQLite, stdlib). Empty = "run/pomodoro"
+    # under the working directory; production pins it to
+    # /opt/reading-companion-relay/run/pomodoro (same run/ rule as learning:
+    # survives release swaps, writable inside the unit's ReadWritePaths).
+    relay_pomodoro_dir: str = Field("", alias="RELAY_POMODORO_DIR")
+
+    # --- pigeon device-to-device messages ----------------------------------
+    # Directory holding pigeon.db (SQLite, stdlib). Empty = "run/pigeon"
+    # under the working directory; production pins it to
+    # /opt/reading-companion-relay/run/pigeon (same run/ rule as learning and
+    # pomodoro: survives release swaps, writable inside the unit's
+    # ReadWritePaths).
+    relay_pigeon_dir: str = Field("", alias="RELAY_PIGEON_DIR")
+    # Keep the relay's copy bounded. Devices fetch history on entry and keep
+    # no long-term local archive, so these are delivery-retention limits.
+    pigeon_message_ttl_days: int = Field(7, alias="PIGEON_MESSAGE_TTL_DAYS")
+    pigeon_max_messages_per_recipient: int = Field(100, alias="PIGEON_MAX_MESSAGES_PER_RECIPIENT")
+    pigeon_max_text_bytes: int = Field(512, alias="PIGEON_MAX_TEXT_BYTES")
+    pigeon_rate_limit_per_minute: int = Field(30, alias="PIGEON_RATE_LIMIT_PER_MINUTE")
+    pigeon_presence_ttl_seconds: float = Field(45.0, alias="PIGEON_PRESENCE_TTL_SECONDS")
+
+    # --- read-only market snapshots ---------------------------------------
+    # A US intraday card may chain two upstreams across a slow cross-border
+    # route; the device waits 18 s, so the server may spend most of it.
+    market_timeout_s: float = Field(10.0, ge=1, le=15, alias="MARKET_TIMEOUT_S")
+    market_quote_ttl_s: float = Field(60.0, ge=10, le=3600, alias="MARKET_QUOTE_TTL_S")
+    market_chart_ttl_s: float = Field(900.0, ge=60, le=86400, alias="MARKET_CHART_TTL_S")
+    market_stale_s: float = Field(86400.0, ge=3600, le=604800, alias="MARKET_STALE_S")
+
+    # --- calendar weather (IP-located) -------------------------------------
+    # The device has no city setting: it asks for "the weather here" and the
+    # relay geocodes the caller's public address (weather.py). These knobs are
+    # timeouts and cache windows, plus an optional pin for fixed deployments.
+    weather_timeout_s: float = Field(8.0, ge=1, le=20, alias="WEATHER_TIMEOUT_S")
+    # Per-geocoder budget. Short: an unreachable provider must fall through to
+    # the next one inside the device's own request timeout.
+    weather_geo_timeout_s: float = Field(3.0, ge=1, le=10, alias="WEATHER_GEO_TIMEOUT_S")
+    weather_ttl_s: float = Field(21600.0, ge=600, le=86400, alias="WEATHER_TTL_S")
+    # How long a failed upstream may keep answering from the previous forecast.
+    weather_stale_s: float = Field(86400.0, ge=3600, le=604800, alias="WEATHER_STALE_S")
+    weather_days: int = Field(5, ge=1, le=7, alias="WEATHER_DAYS")
+    # Empty = follow the caller's IP. Both set = pin the location and skip
+    # geocoding entirely (a fixed installation behind a proxy whose client
+    # address says nothing useful).
+    weather_lat: str = Field("", alias="WEATHER_LAT")
+    weather_lon: str = Field("", alias="WEATHER_LON")
+    weather_city: str = Field("", alias="WEATHER_CITY")
+
+    # --- text-to-speech (edge-tts) -----------------------------------------
+    # The relay decodes edge-tts MP3 to 16 kHz mono PCM (tts.py); the device has
+    # no decoder. Voices are BCP-47 short names; the device picks a language per
+    # card (a Hanzi entry reads zh, a word card reads en).
+    tts_enabled: bool = Field(True, alias="TTS_ENABLED")
+    tts_voice_zh: str = Field("zh-CN-XiaoxiaoNeural", alias="TTS_VOICE_ZH")
+    tts_voice_en: str = Field("en-US-AriaNeural", alias="TTS_VOICE_EN")
+    tts_max_chars: int = Field(1200, ge=100, le=4000, alias="TTS_MAX_CHARS")
+    # Characters per synthesis segment. Short segments start playing sooner;
+    # the pipeline hides the joins, so this trades memory for first-audio
+    # latency, not for gaps.
+    tts_segment_chars: int = Field(120, ge=20, le=400, alias="TTS_SEGMENT_CHARS")
+    tts_timeout_s: float = Field(15.0, ge=3, le=60, alias="TTS_TIMEOUT_S")
+    tts_max_concurrent: int = Field(4, ge=1, le=16, alias="TTS_MAX_CONCURRENT")
+
+    # --- text-to-image cards ------------------------------------------------
+    # "mock" (default): draw a placeholder locally, no cloud call and no cost —
+    # the whole endpoint/asset path is exercised. "dashscope": wanx task +
+    # poll. "openai": one-shot POST to any OpenAI-compatible images endpoint
+    # (T2I_BASE_URL + T2I_API_KEY below).
+    t2i_provider: str = Field("mock", alias="T2I_PROVIDER")
+    t2i_model: str = Field("wanx2.1-t2i-turbo", alias="T2I_MODEL")
+    # Image-to-image edit model (device "修改" flow: base image + prompt).
+    t2i_edit_model: str = Field("wanx2.1-imageedit", alias="T2I_EDIT_MODEL")
+    # Generation size; the panel size (below) is a fit crop of this. DashScope
+    # spells it W*H, OpenAI-compatible endpoints WxH — t2i.py converts.
+    t2i_size: str = Field("768*1280", alias="T2I_SIZE")
+    t2i_timeout_s: float = Field(150.0, alias="T2I_TIMEOUT_S")
+    t2i_poll_interval_s: float = Field(3.0, alias="T2I_POLL_INTERVAL_S")
+    # Simulated provider latency for mock mode (seconds, 0 = instant).
+    t2i_mock_delay_s: float = Field(2.5, alias="T2I_MOCK_DELAY_S")
+    # Onepage panel: 480x800 1-bit portrait. Server-side conversion target;
+    # the firmware draws the BMP 1:1 on the portrait screen.
+    t2i_width: int = Field(480, alias="T2I_WIDTH")
+    t2i_height: int = Field(800, alias="T2I_HEIGHT")
+    # Empty = "run/t2i-assets" under the working directory. The production
+    # service is sandboxed (ProtectSystem=strict + ReadWritePaths), so
+    # install.sh pins this to /opt/reading-companion-relay/run/t2i.
+    t2i_asset_dir: str = Field("", alias="T2I_ASSET_DIR")
+    t2i_asset_ttl_s: int = Field(86400, alias="T2I_ASSET_TTL_S")
+    # OpenAI-compatible images endpoint (T2I_PROVIDER=openai): POST
+    # <T2I_BASE_URL>/images/generations with {"model", "prompt", "size",
+    # "response_format"} — OpenAI, SiliconFlow, gateways, vLLM adapters. The
+    # size format is OpenAI's WxH (converted from T2I_SIZE's W*H).
+    t2i_base_url: str = Field("", alias="T2I_BASE_URL")
+    t2i_api_key: str = Field("", alias="T2I_API_KEY")
+
+    dashscope_api_key: str = Field("", alias="DASHSCOPE_API_KEY")
+    dashscope_workspace_id: str = Field("", alias="DASHSCOPE_WORKSPACE_ID")
+    dashscope_region: str = Field("cn-beijing", alias="DASHSCOPE_REGION")
+
+    # --- AI-native reading library (V1) -----------------------------------
+    # Directory holding library.db and uploaded book files. Empty =
+    # "run/library" under the working directory. Production should pin it to
+    # /opt/reading-companion-relay/run/library (outside the release tree).
+    relay_library_dir: str = Field("", alias="RELAY_LIBRARY_DIR")
+    max_book_bytes: int = Field(64 * 1024 * 1024, alias="MAX_BOOK_BYTES")
+    # Parse synchronously in the request handler. Tests set this to 1 so the
+    # upload response already has a terminal status; production keeps the
+    # background-thread path so a large EPUB never blocks the event loop.
+    book_ingest_sync: bool = Field(False, alias="BOOK_INGEST_SYNC")
+    reader_context_char_budget: int = Field(8000, alias="READER_CONTEXT_CHAR_BUDGET")
+    reader_max_output_tokens: int = Field(512, alias="READER_MAX_OUTPUT_TOKENS")
+    reader_max_passages: int = Field(8, alias="READER_MAX_PASSAGES")
+    reader_max_selected_bytes: int = Field(4000, alias="READER_MAX_SELECTED_BYTES")
+    sync_batch_max_ops: int = Field(50, alias="SYNC_BATCH_MAX_OPS")
+
+    # --- limits / timeouts (docs section 8) --------------------------------
+    max_audio_seconds: int = Field(30, alias="MAX_AUDIO_SECONDS")
+    max_llm_output_tokens: int = Field(256, alias="MAX_LLM_OUTPUT_TOKENS")
+    max_reply_chars: int = Field(500, alias="MAX_REPLY_CHARS")
+    session_idle_timeout_seconds: int = Field(60, alias="SESSION_IDLE_TIMEOUT_SECONDS")
+    asr_connect_timeout: float = Field(5.0, alias="ASR_CONNECT_TIMEOUT")
+    asr_task_started_timeout: float = Field(3.0, alias="ASR_TASK_STARTED_TIMEOUT")
+    asr_finish_timeout: float = Field(8.0, alias="ASR_FINISH_TIMEOUT")
+    llm_first_token_timeout: float = Field(5.0, alias="LLM_FIRST_TOKEN_TIMEOUT")
+    upstream_total_timeout: float = Field(30.0, alias="UPSTREAM_TOTAL_TIMEOUT")
+    retry_backoff_seconds: float = Field(1.0, alias="RETRY_BACKOFF_SECONDS")
+    max_concurrent_sessions: int = Field(4, alias="MAX_CONCURRENT_SESSIONS")
+    # Multiple onepage devices share this relay: cap connections so a
+    # reconnect loop cannot exhaust file descriptors, and cap sessions per
+    # device so one device cannot occupy every ASR slot.
+    max_ws_connections: int = Field(32, alias="MAX_WS_CONNECTIONS")
+    max_sessions_per_device: int = Field(1, alias="MAX_SESSIONS_PER_DEVICE")
+
+    # --- mock provider knobs (development) ---------------------------------
+    mock_asr_text: str = Field("今天天气怎么样", alias="MOCK_ASR_TEXT")
+    mock_asr_partials: str = Field("今天,今天天气", alias="MOCK_ASR_PARTIALS")
+    mock_asr_partial_interval_ms: int = Field(500, alias="MOCK_ASR_PARTIAL_INTERVAL_MS")
+    mock_asr_final_delay_ms: int = Field(150, alias="MOCK_ASR_FINAL_DELAY_MS")
+    mock_llm_text: str = Field("今天适合阅读，室外天气晴朗。", alias="MOCK_LLM_TEXT")
+    mock_llm_delta_interval_ms: int = Field(80, alias="MOCK_LLM_DELTA_INTERVAL_MS")
+    mock_llm_delta_chars: int = Field(3, alias="MOCK_LLM_DELTA_CHARS")
+    mock_asr_fail_start: bool = Field(False, alias="MOCK_ASR_FAIL_START")
+    mock_llm_fail: bool = Field(False, alias="MOCK_LLM_FAIL")
+
+    @field_validator("asr_chunk_ms")
+    @classmethod
+    def _chunk_bounds(cls, v: int) -> int:
+        if v < 20 or v > 500:
+            raise ValueError("ASR_CHUNK_MS must be 20..500")
+        return v
+
+    @field_validator("asr_provider")
+    @classmethod
+    def _asr_name(cls, v: str) -> str:
+        # Docs section 17.4 uses ASR_PROVIDER=paraformer.
+        return {"paraformer": "dashscope", "dashscope-paraformer": "dashscope"}.get(v.lower(), v.lower())
+
+    @field_validator("llm_provider")
+    @classmethod
+    def _llm_name(cls, v: str) -> str:
+        # Docs section 17.4 uses LLM_PROVIDER=dashscope-openai-compatible.
+        return {"dashscope-openai-compatible": "dashscope", "openai-compatible": "dashscope"}.get(
+            v.lower(), v.lower()
+        )
+
+    @field_validator("dict_source")
+    @classmethod
+    def _dict_source(cls, v: str) -> str:
+        v = v.lower()
+        if v not in ("local", "llm"):
+            raise ValueError("DICT_SOURCE must be 'local' or 'llm'")
+        return v
+
+    @field_validator("t2i_provider")
+    @classmethod
+    def _t2i_provider(cls, v: str) -> str:
+        v = v.lower()
+        if v not in ("mock", "dashscope", "openai"):
+            raise ValueError("T2I_PROVIDER must be 'mock', 'dashscope' or 'openai'")
+        return v
+
+    @field_validator("t2i_size")
+    @classmethod
+    def _t2i_size(cls, v: str) -> str:
+        parts = v.split("*")
+        if len(parts) != 2 or not all(p.isdigit() and int(p) >= 512 for p in parts):
+            raise ValueError("T2I_SIZE must look like W*H with sides >= 512, e.g. 1280*768")
+        return v
+
+    # ------------------------------------------------------------------ helpers
+    @property
+    def learning_db_path(self) -> Path:
+        base = Path(self.relay_learning_dir) if self.relay_learning_dir else Path("run/learning")
+        return base / "learning.db"
+
+    @property
+    def pomodoro_db_path(self) -> Path:
+        base = Path(self.relay_pomodoro_dir) if self.relay_pomodoro_dir else Path("run/pomodoro")
+        return base / "pomodoro.db"
+
+    @property
+    def pigeon_db_path(self) -> Path:
+        base = Path(self.relay_pigeon_dir) if self.relay_pigeon_dir else Path("run/pigeon")
+        return base / "pigeon.db"
+
+    @property
+    def device_db_path(self) -> Path:
+        base = Path(self.relay_device_dir) if self.relay_device_dir else Path("run/devices")
+        return base / "devices.json"
+
+    @property
+    def library_db_path(self) -> Path:
+        base = Path(self.relay_library_dir) if self.relay_library_dir else Path("run/library")
+        return base / "library.db"
+
+    @property
+    def library_books_dir(self) -> Path:
+        base = Path(self.relay_library_dir) if self.relay_library_dir else Path("run/library")
+        return base / "books"
+
+    @property
+    def weather_pin(self) -> tuple[float, float] | None:
+        """WEATHER_LAT/LON when both are set and numeric, else None."""
+        if not self.weather_lat.strip() or not self.weather_lon.strip():
+            return None
+        try:
+            return float(self.weather_lat), float(self.weather_lon)
+        except ValueError:
+            return None
+
+    @property
+    def allowed_devices(self) -> list[str]:
+        return [d.strip() for d in self.allowed_device_ids.split(",") if d.strip()]
+
+    @property
+    def language_hints(self) -> list[str]:
+        return [h.strip() for h in self.asr_language_hints.split(",") if h.strip()]
+
+    def device_token_map(self) -> dict[str, str]:
+        out: dict[str, str] = {}
+        for pair in self.relay_device_tokens.split(","):
+            if not pair.strip():
+                continue
+            device_id, _, token = pair.partition(":")
+            if device_id.strip() and token.strip():
+                out[device_id.strip()] = token.strip()
+        return out
+
+    def dashscope_asr_endpoint(self) -> str:
+        if self.asr_endpoint:
+            return self.asr_endpoint
+        return "wss://dashscope.aliyuncs.com/api-ws/v1/inference"
+
+    def dashscope_llm_base_url(self) -> str:
+        if self.llm_base_url:
+            return self.llm_base_url.rstrip("/")
+        if self.dashscope_workspace_id:
+            return (
+                f"https://{self.dashscope_workspace_id}.{self.dashscope_region}"
+                ".maas.aliyuncs.com/compatible-mode/v1"
+            )
+        return "https://dashscope.aliyuncs.com/compatible-mode/v1"
+
+    def dashscope_t2i_base_url(self) -> str:
+        if self.dashscope_workspace_id:
+            return (
+                f"https://{self.dashscope_workspace_id}.{self.dashscope_region}"
+                ".maas.aliyuncs.com/api/v1"
+            )
+        return "https://dashscope.aliyuncs.com/api/v1"
+
+    def ready_report(self) -> dict[str, str]:
+        """What /readyz reports. Never contains key material."""
+        from . import dict_source  # local import: keeps config import light
+
+        return {
+            "asr": "configured" if self._asr_ready() else "missing_config",
+            "llm": "configured" if self._llm_ready() else "missing_config",
+            "dict": dict_source.describe(self.dict_source, self.dict_data_dir),
+            "t2i": self._t2i_ready(),
+            "weather": "pinned" if self.weather_pin else "ip",
+            "tts": self._tts_ready(),
+            "region": self.dashscope_region,
+        }
+
+    def _asr_ready(self) -> bool:
+        if self.asr_provider == "mock":
+            return True
+        return self.asr_provider == "dashscope" and bool(self.dashscope_api_key)
+
+    def _llm_ready(self) -> bool:
+        if self.llm_provider == "mock":
+            return True
+        return self.llm_provider == "dashscope" and bool(self.dashscope_api_key)
+
+    def _tts_ready(self) -> str:
+        if not self.tts_enabled:
+            return "disabled"
+        from . import tts  # local import: keeps config import light
+
+        return "configured" if tts.available() else "missing_deps"
+
+    def _t2i_ready(self) -> str:
+        if self.t2i_provider == "mock":
+            return "mock"
+        if self.t2i_provider == "openai":
+            return "configured" if self.t2i_base_url and self.t2i_api_key else "missing_config"
+        if self.dashscope_api_key:
+            return "configured"
+        return "missing_config"
+
+
+_settings: Settings | None = None
+
+
+def get_settings() -> Settings:
+    global _settings
+    if _settings is None:
+        _settings = Settings()
+    return _settings
+
+
+def reload_settings() -> Settings:
+    """Test hook: re-read the environment."""
+    global _settings
+    _settings = Settings()
+    return _settings

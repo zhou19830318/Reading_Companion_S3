@@ -1,0 +1,633 @@
+296] [INF] [ACC] MSA311 found at 0x62: X=-9 mg Y=92 mg Z=995 mg
+[297] [INF] [TILT] accelerometer tilt gestures enabled
+[297] [INF] [CLK] PCF8563 RTC found (clock not set)
+[317] [INF] [ENV] SHT30 found: 19.1 C, 28 %RH
+[317] [INF] [MAIN] Hardware detect: X4
+GO_HOME ok
+[7510] [DBG] [ACT] Exiting activity: Home
+[7515] [DBG] [ACT] Entering activity: Home
+[7817] [DBG] [LOOP] New max loop duration: 313 ms (activity: 306 ms)
+[7821] [DBG] [RND] rendering 'Home'
+[7890]   Transparent image drawn to frame buffer
+[7891]   Transparent image drawn to frame buffer
+[7892]   Transparent image drawn to frame buffer
+[7893]   Transparent image drawn to frame buffer
+[7894]   Transparent image drawn to frame buffer
+[7895]   Transparent image drawn to frame buffer
+[7895]   Transparent image drawn to frame buffer
+[7896]   Transparent image drawn to frame buffer
+[7897]   Transparent image drawn to frame buffer
+[7899] [DBG] [GFX] Time = 78 ms from clearScreen to displayBuffer
+[7899]   Writing frame buffer to BW RAM (48000 bytes)...
+[7911]   BW RAM write complete (12 ms)
+[7911]   Powering on display 0xFC (fast refresh)...
+[8391]   Wait complete: fast (480 ms)
+[8592]   Wait complete: power-off (1 ms)
+[8592]   Writing frame buffer to BW RAM (48000 bytes)...
+[8603]   BW RAM write complete (11 ms)
+[8603]   Writing frame buffer to RED RAM (48000 bytes)...
+[8614]   RED RAM write complete (11 ms)
+[8615] [INF] [EPD] buffer mode=2 ms=716
+[8622] [INF] [DISP] frame 2 'Home'
+[8631] [DBG] [PWR] CPU frequency -> 10 MHz
+KEY ok injected
+[9504] [DBG] [PWR] CPU frequency -> 240 MHz
+[9507] [INF] [IN] press edge @9507
+[9507] [INF] [AUD] amp ground off, creating I2S TX channel
+[9508] [INF] [AUD] I2S TX channel created, configuring std mode
+[9509] [INF] [AUD] std mode configured, enabling channel
+[9509] [INF] [AUD] MAX98357A I2S TX up at 16000 Hz
+[9540] [DBG] [SND] 1250 Hz 16 ms amp=1 queued=1
+[9551] [DBG] [ACT] Exiting activity: Home
+[9552] [DBG] [ACT] Entering activity: Reader
+[9576] [DBG] [SDCF] Overflow: loaded U+52A0 style 0 on demand (slot 69/128)
+[9600] [DBG] [SDCF] Overflow: loaded U+8F7D style 0 on demand (slot 70/128)
+[9601] [DBG] [GFX] Time = 1780 ms from clearScreen to displayBuffer
+[9601]   Writing frame buffer to BW RAM (48000 bytes)...
+[9613]   BW RAM write complete (12 ms)
+[9613]   Powering on display 0xFC (fast refresh)...
+[9613]   Waiting for display refresh...
+[10094]   Wait complete: fast (481 ms)
+[10294]   Wait complete: power-off (0 ms)
+[10294]   Writing frame buffer to BW RAM (48000 bytes)...
+[10305]   BW RAM write complete (11 ms)
+[10305]   Writing frame buffer to RED RAM (48000 bytes)...
+[10317]   RED RAM write complete (12 ms)
+[10317] [INF] [EPD] buffer mode=2 ms=716
+[10321] [DBG] [EBP] Loading ePub: /世界少年文学经典文库·中国经典篇（全套30册）.epub
+[10333] [DBG] [BMC] Loaded cache data: 2086 spine, 1931 TOC entries
+[10334] [DBG] [GFX] Time = 2513 ms from clearScreen to displayBuffer
+[10334]   Writing frame buffer to BW RAM (48000 bytes)...
+[10346]   BW RAM write complete (12 ms)
+[10346]   Powering on display 0xFC (fast refresh)...
+[10346]   Waiting for display refresh...
+[10827]   Wait complete: fast (481 ms)
+[11027]   Wait complete: power-off (0 ms)
+[11027]   Writing frame buffer to BW RAM (48000 bytes)...
+[11038]   BW RAM write complete (11 ms)
+[11038]   Writing frame buffer to RED RAM (48000 bytes)...
+[11050]   RED RAM write complete (12 ms)
+[11050] [INF] [EPD] buffer mode=2 ms=716
+[11068] [DBG] [CSS] Loaded 0 rules from cache
+[11068] [DBG] [EBP] Loaded ePub: /世界少年文学经典文库·中国经典篇（全套30册）.epub
+[11069] [DBG] [GFX] Time = 3248 ms from clearScreen to displayBuffer
+[11069]   Writing frame buffer to BW RAM (48000 bytes)...
+[11080]   BW RAM write complete (11 ms)
+[11080]   Powering on display 0xFC (fast refresh)...
+[11081]   Waiting for display refresh...
+[11562]   Wait complete: fast (481 ms)
+[11762]   Wait complete: power-off (0 ms)
+[11762]   Writing frame buffer to BW RAM (48000 bytes)...
+[11773]   BW RAM write complete (11 ms)
+[11773]   Writing frame buffer to RED RAM (48000 bytes)...
+[11785]   RED RAM write complete (12 ms)
+[11785] [INF] [EPD] buffer mode=2 ms=716
+[11785] [DBG] [ACT] Exiting activity: Reader
+[11785] [DBG] [ACT] Entering activity: EpubReader
+[11826] [INF] [PRG] Recovered progress from slot B seq 872
+[11826] [DBG] [ERS] Loaded cache (slot): 293, 11
+[12132] [DBG] [RND] rendering 'EpubReader'
+[12132] [DBG] [LOOP] New max loop duration: 2581 ms (activity: 2581 ms)
+[12135] [DBG] [ERS] Loading file: text/part0231.html, index: 293
+[12143] [DBG] [SND] amp off
+[12144] [INF] [MEM] Free: 148272 bytes, Total: 257568 bytes, Min Free: 144056 bytes, MaxAlloc: 106484 bytes PsramT: 8388608 PsramF: 8004992
+[12152] [DBG] [SCT] Deserialization succeeded: 15 pages
+[12152] [DBG] [ERS] Cache found, skipping build...
+[12152] [DBG] [GFX] Time = 0 ms from clearScreen to displayBuffer
+[12153]   Writing frame buffer to BW RAM (48000 bytes)...
+[12164]   BW RAM write complete (11 ms)
+[12164]   Powering on display 0xFC (fast refresh)...
+[12165]   Waiting for display refresh...
+[12645]   Wait complete: fast (480 ms)
+[12846]   Wait complete: power-off (0 ms)
+[12846]   Writing frame buffer to BW RAM (48000 bytes)...
+[12857]   BW RAM write complete (11 ms)
+[12857]   Writing frame buffer to RED RAM (48000 bytes)...
+[12869]   RED RAM write complete (12 ms)
+[12869] [INF] [EPD] buffer mode=2 ms=717
+[12927] [DBG] [SDCF] Kern classes + lig loaded: kernL=51, kernR=73, ligs=0
+[12937] [DBG] [SDCF] meta span: n=190 range=[1375..24635] slots=23261
+[13113] [DBG] [SDCF] bmp span: n=190 range=[111089..4196872] span=4085783 payload=31960
+[13527] [DBG] [SDCF] io: style=0 glyphs=190 meta=177ms/180seek bmp=414ms/180seek/31960B
+[13527] [DBG] [SDCF] prewarm: mask=0x01 cp=190 total=615ms sd=591ms seeks=360 glyphs=190 bytes=31960 fill=190/9000
+[13627] [DBG] [SDCF] Overflow: loaded U+7B2C style 0 on demand (slot 71/128)
+[13650] [DBG] [SDCF] Overflow: loaded U+4E8C style 0 on demand (slot 72/128)
+[13674] [DBG] [SDCF] Overflow: loaded U+5341 style 0 on demand (slot 73/128)
+[13697] [DBG] [SDCF] Overflow: loaded U+516D style 0 on demand (slot 74/128)
+[13720] [DBG] [SDCF] Overflow: loaded U+56DE style 0 on demand (slot 75/128)
+[13741] [DBG] [SDCF] Overflow: loaded U+3000 style 0 on demand (slot 76/128)
+[13765] [DBG] [SDCF] Overflow: loaded U+8C6A style 0 on demand (slot 77/128)
+[13789] [DBG] [SDCF] Overflow: loaded U+4E49 style 0 on demand (slot 78/128)
+[13813] [DBG] [SDCF] Overflow: loaded U+5BA2 style 0 on demand (slot 79/128)
+[13839] [DBG] [SDCF] Overflow: loaded U+8BBF style 0 on demand (slot 80/128)
+[13862] [DBG] [SDCF] Overflow: loaded U+53CB style 0 on demand (slot 81/128)
+[13886] [DBG] [SDCF] Overflow: loaded U+4F1A style 0 on demand (slot 82/128)
+[13909] [DBG] [SDCF] Overflow: loaded U+540D style 0 on demand (slot 83/128)
+[13935] [DBG] [SDCF] Overflow: loaded U+6D41 style 0 on demand (slot 84/128)
+[13958] [DBG] [SDCF] Overflow: loaded U+62D2 style 0 on demand (slot 85/128)
+[13981] [DBG] [SDCF] Overflow: loaded U+4ED5 style 0 on demand (slot 86/128)
+[14006] [DBG] [SDCF] Overflow: loaded U+9014 style 0 on demand (slot 87/128)
+[14031] [DBG] [SDCF] Overflow: loaded U+88C5 style 0 on demand (slot 88/128)
+[14054] [DBG] [SDCF] Overflow: loaded U+75C5 style 0 on demand (slot 89/128)
+[14079] [DBG] [SDCF] Overflow: loaded U+8F9E style 0 on demand (slot 90/128)
+[14102] [DBG] [SDCF] Overflow: loaded U+77E5 style 0 on demand (slot 91/128)
+[14126] [DBG] [SDCF] Overflow: loaded U+53BF style 0 on demand (slot 92/128)
+[14131] [DBG] [GFX] Time = 1220 ms from clearScreen to displayBuffer
+[14132]   Writing frame buffer to BW RAM (48000 bytes)...
+[14143]   BW RAM write complete (11 ms)
+[14143]   Powering on display 0xFC (fast refresh)...
+[14143]   Waiting for display refresh...
+[14624]   Wait complete: fast (481 ms)
+[14825]   Wait complete: power-off (1 ms)
+[14825]   Writing frame buffer to BW RAM (48000 bytes)...
+[14836]   BW RAM write complete (11 ms)
+[14836]   Writing frame buffer to RED RAM (48000 bytes)...
+[14848]   RED RAM write complete (12 ms)
+[14848] [INF] [EPD] buffer mode=2 ms=717
+[15005]   Loading custom LUT...
+[15007]   Custom LUT loaded
+[15007]   Powering on display 0xCF (custom LUT refresh)...
+[15007]   Waiting for display refresh...
+[15288]   Wait complete: custom (281 ms)
+[15289]   Custom LUT disabled
+[15289]   Writing frame buffer to RED RAM (48000 bytes)...
+[15300]   RED RAM write complete (11 ms)
+[15300] [DBG] [ERS] Page render (tiled): prewarm=617ms scan=1ms fontpw=616ms bw_render=603ms display=717ms gray_lsb=76ms gray_msb=81ms gray_display=284ms cleanup=11ms total=2389ms
+[15301] [DBG] [ERS] Rendered page in 2390ms
+[15320] [DBG] [SCT] Deserialization succeeded: 13 pages
+[15336] [DBG] [SCT] Deserialization succeeded: 14 pages
+[15353] [DBG] [SCT] Deserialization succeeded: 15 pages
+[15397] [DBG] [ERS] Page stage buffers: 48000 bytes x3 in PSRAM
+[15412] [DBG] [SDCF] meta span: n=85 range=[3054..23859] slots=20806
+[15515] [DBG] [SDCF] bmp span: n=85 range=[271383..4082363] span=3810980 payload=25073
+[15720] [DBG] [SDCF] io: style=0 glyphs=151 meta=102ms/84seek bmp=206ms/84seek/25073B
+[15720] [DBG] [SDCF] prewarm: mask=0x01 cp=151 total=320ms sd=308ms seeks=168 glyphs=151 bytes=25073 fill=275/9000
+[15851] [DBG] [ERS] Staged spine 293 page 12 in 454ms
+[15892] [DBG] [ERS] Progress saved: spine=293 page=11
+[15947] [INF] [DISP] frame 3 'EpubReader'
+[16365] [DBG] [PWR] CPU frequency -> 10 MHz
+[22148] [INF] [MEM] Free: 147464 bytes, Total: 257568 bytes, Min Free: 120492 bytes, MaxAlloc: 86004 bytes PsramT: 8388608 PsramF: 7499224
+KEY down injected
+[28279] [DBG] [PWR] CPU frequency -> 240 MHz
+[28282] [INF] [IN] press edge @28282
+[28285] [DBG] [SND] 880 Hz 34 ms amp=1 queued=1
+[28285] [DBG] [RND] rendering 'EpubReader'
+[28314] [DBG] [GFX] Time = 12505 ms from clearScreen to displayBuffer
+[28314]   Writing frame buffer to BW RAM (48000 bytes)...
+[28325]   BW RAM write complete (11 ms)
+[28326]   Powering on display 0xFC (fast refresh)...
+[28326]   Waiting for display refresh...
+[28442] [DBG] [SND] amp off
+[28806]   Wait complete: fast (480 ms)
+[29007]   Wait complete: power-off (1 ms)
+[29007]   Writing frame buffer to BW RAM (48000 bytes)...
+[29018]   BW RAM write complete (11 ms)
+[29018]   Writing frame buffer to RED RAM (48000 bytes)...
+[29030]   RED RAM write complete (12 ms)
+[29030] [INF] [EPD] buffer mode=2 ms=716
+[29057]   Loading custom LUT...
+[29058]   Custom LUT loaded
+[29058]   Powering on display 0xCF (custom LUT refresh)...
+[29058]   Waiting for display refresh...
+[29339]   Wait complete: custom (281 ms)
+[29340]   Custom LUT disabled
+[29340]   Writing frame buffer to RED RAM (48000 bytes)...
+[29351]   RED RAM write complete (11 ms)
+[29351] [DBG] [ERS] Staged render: copy=1ms status=27ms display=716ms gray_lsb=13ms gray_msb=14ms gray_display=283ms cleanup=11ms total=1065ms
+[29352] [DBG] [ERS] Rendered staged page in 1066ms
+[29370] [DBG] [SCT] Deserialization succeeded: 13 pages
+KEY down injected
+[29378] [INF] [IN] press edge @29378
+[29380] [DBG] [SND] 880 Hz 34 ms amp=1 queued=1
+[29387] [DBG] [SCT] Deserialization succeeded: 14 pages
+[29404] [DBG] [SCT] Deserialization succeeded: 15 pages
+[29445] [DBG] [SDCF] meta span: n=35 range=[3490..24436] slots=20947
+[29502] [DBG] [SDCF] bmp span: n=35 range=[349421..4184245] span=3834824 payload=15163
+[29537] [DBG] [SND] amp off
+[29596] [DBG] [SDCF] io: style=0 glyphs=94 meta=56ms/35seek bmp=95ms/35seek/15163B
+[29596] [DBG] [SDCF] prewarm: mask=0x01 cp=94 total=161ms sd=151ms seeks=70 glyphs=94 bytes=15163 fill=310/9000
+[29661] [DBG] [ERS] Staged spine 293 page 14 in 227ms
+[29702] [DBG] [ERS] Progress saved: spine=293 page=13
+[29717] [INF] [DISP] frame 4 'EpubReader'
+[29717] [DBG] [RND] rendering 'EpubReader'
+[29717] [DBG] [ERS] Stage key mismatch: have (293,14,15,464,764,2558845316) want (293,13,15,464,764,2558845316)
+[29767] [DBG] [SDCF] meta span: n=66 range=[2989..22353] slots=19365
+[29851] [DBG] [SDCF] bmp span: n=66 range=[264918..3804966] span=3540048 payload=26545
+[30021] [DBG] [SDCF] io: style=0 glyphs=161 meta=83ms/65seek bmp=171ms/65seek/26545B
+[30022] [DBG] [SDCF] prewarm: mask=0x01 cp=161 total=266ms sd=254ms seeks=130 glyphs=161 bytes=26545 fill=376/9000
+[30098] [DBG] [GFX] Time = 343 ms from clearScreen to displayBuffer
+[30098]   Writing frame buffer to BW RAM (48000 bytes)...
+[30110]   BW RAM write complete (12 ms)
+[30110]   Powering on display 0xFC (fast refresh)...
+[30110]   Waiting for display refresh...
+KEY down injected
+[30473] [INF] [IN] press edge @30473
+[30475] [DBG] [SND] 880 Hz 34 ms amp=1 queued=1
+[30592]   Wait complete: fast (482 ms)
+[30632] [DBG] [SND] amp off
+[30792]   Wait complete: power-off (0 ms)
+[30792]   Writing frame buffer to BW RAM (48000 bytes)...
+[30803]   BW RAM write complete (11 ms)
+[30803]   Writing frame buffer to RED RAM (48000 bytes)...
+[30815]   RED RAM write complete (12 ms)
+[30815] [INF] [EPD] buffer mode=2 ms=717
+[30960]   Loading custom LUT...
+[30961]   Custom LUT loaded
+[30961]   Powering on display 0xCF (custom LUT refresh)...
+[30961]   Waiting for display refresh...
+[31242]   Wait complete: custom (280 ms)
+[31243]   Custom LUT disabled
+[31243]   Writing frame buffer to RED RAM (48000 bytes)...
+[31254]   RED RAM write complete (11 ms)
+[31254] [DBG] [ERS] Page render (tiled): prewarm=267ms scan=1ms fontpw=266ms bw_render=76ms display=717ms gray_lsb=70ms gray_msb=75ms gray_display=283ms cleanup=11ms total=1499ms
+[31255] [DBG] [ERS] Rendered page in 1500ms
+[31273] [DBG] [SCT] Deserialization succeeded: 13 pages
+[31290] [DBG] [SCT] Deserialization succeeded: 14 pages
+[31307] [DBG] [SCT] Deserialization succeeded: 13 pages
+[31358] [DBG] [SDCF] meta span: n=56 range=[2979..22607] slots=19629
+[31435] [DBG] [SDCF] bmp span: n=55 range=[285089..3851628] span=3566539 payload=25657
+KEY down injected
+[31578] [INF] [IN] press edge @31578
+[31579] [DBG] [SDCF] io: style=0 glyphs=153 meta=76ms/55seek bmp=145ms/54seek/25657B
+[31579] [DBG] [SDCF] prewarm: mask=0x01 cp=153 total=232ms sd=221ms seeks=109 glyphs=153 bytes=25657 fill=431/9000
+[31580] [DBG] [SND] 880 Hz 34 ms amp=1 queued=1
+[31580] [INF] [ERS] chapter_completed spine=293 (invite offered)
+[31704] [DBG] [ERS] Staged spine 294 page 0 in 360ms
+[31737] [DBG] [SND] amp off
+[31746] [DBG] [ERS] Progress saved: spine=293 page=14
+[31760] [INF] [DISP] frame 5 'EpubReader'
+[31761] [DBG] [RND] rendering 'EpubReader'
+[31761] [DBG] [ERS] Stage key mismatch: have (294,0,13,464,764,2558845316) want (293,14,15,464,764,2558845316)
+[31802] [DBG] [SDCF] meta span: n=0 range=[2147483647..-2147483648] slots=0
+[31803] [DBG] [SDCF] io: style=0 glyphs=94 meta=0ms/0seek bmp=1ms/0seek/15163B
+[31803] [DBG] [SDCF] prewarm: mask=0x01 cp=94 total=11ms sd=1ms seeks=0 glyphs=94 bytes=15163 fill=431/9000
+[31877] [DBG] [SDCF] Overflow: loaded U+672C style 0 on demand (slot 93/128)
+[31900] [DBG] [SDCF] Overflow: loaded U+7AE0 style 0 on demand (slot 94/128)
+[31926] [DBG] [SDCF] Overflow: loaded U+8BFB style 0 on demand (slot 95/128)
+[31950] [DBG] [SDCF] Overflow: loaded U+5B8C style 0 on demand (slot 96/128)
+[31976] [DBG] [SDCF] Overflow: loaded U+FF1A style 0 on demand (slot 97/128)
+[32000] [DBG] [SDCF] Overflow: loaded U+548C style 0 on demand (slot 98/128)
+[32023] [DBG] [SDCF] Overflow: loaded U+804A style 0 on demand (slot 99/128)
+[32047] [DBG] [SDCF] Overflow: loaded U+8FD4 style 0 on demand (slot 100/128)
+[32072] [DBG] [SDCF] Overflow: loaded U+7EE7 style 0 on demand (slot 101/128)
+[32095] [DBG] [SDCF] Overflow: loaded U+7EED style 0 on demand (slot 102/128)
+[32119] [DBG] [SDCF] Overflow: loaded U+9605 style 0 on demand (slot 103/128)
+[32122] [DBG] [GFX] Time = 331 ms from clearScreen to displayBuffer
+[32122]   Writing frame buffer to BW RAM (48000 bytes)...
+[32133]   BW RAM write complete (11 ms)
+[32134]   Powering on display 0xFC (fast refresh)...
+[32134]   Waiting for display refresh...
+[32158] [INF] [MEM] Free: 138596 bytes, Total: 257568 bytes, Min Free: 120492 bytes, MaxAlloc: 86004 bytes PsramT: 8388608 PsramF: 7450672
+[32614]   Wait complete: fast (480 ms)
+KEY down injected
+[32674] [INF] [IN] press edge @32674
+[32676] [DBG] [SND] 880 Hz 34 ms amp=1 queued=1
+[32815]   Wait complete: power-off (1 ms)
+[32815]   Writing frame buffer to BW RAM (48000 bytes)...
+[32826]   BW RAM write complete (11 ms)
+[32826]   Writing frame buffer to RED RAM (48000 bytes)...
+[32833] [DBG] [SND] amp off
+[32838]   RED RAM write complete (12 ms)
+[32838] [INF] [EPD] buffer mode=2 ms=716
+[32918]   Loading custom LUT...
+[32920]   Custom LUT loaded
+[32920]   Powering on display 0xCF (custom LUT refresh)...
+[32920]   Waiting for display refresh...
+[33202]   Wait complete: custom (282 ms)
+[33202]   Custom LUT disabled
+[33202]   Writing frame buffer to RED RAM (48000 bytes)...
+[33213]   RED RAM write complete (11 ms)
+[33214] [DBG] [ERS] Page render (tiled): prewarm=12ms scan=1ms fontpw=11ms bw_render=319ms display=716ms gray_lsb=39ms gray_msb=41ms gray_display=284ms cleanup=12ms total=1423ms
+[33214] [DBG] [ERS] Rendered page in 1423ms
+[33232] [DBG] [SCT] Deserialization succeeded: 13 pages
+[33249] [DBG] [SCT] Deserialization succeeded: 14 pages
+[33266] [DBG] [SCT] Deserialization succeeded: 13 pages
+[33306] [DBG] [ERS] Progress saved: spine=293 page=14
+[33321] [INF] [DISP] frame 6 'EpubReader'
+[33321] [DBG] [RND] rendering 'EpubReader'
+[33322] [DBG] [ERS] Applied pending spine delta +1 -> 294
+[33324] [DBG] [ERS] Loading file: text/part0232.html, index: 294
+[33341] [DBG] [SCT] Deserialization succeeded: 13 pages
+[33342] [DBG] [ERS] Cache found, skipping build...
+[33387] [DBG] [SDCF] Overflow: loaded U+4E03 style 0 on demand (slot 104/128)
+[33412] [DBG] [SDCF] Overflow: loaded U+8D74 style 0 on demand (slot 105/128)
+[33435] [DBG] [SDCF] Overflow: loaded U+4EAC style 0 on demand (slot 106/128)
+[33458] [DBG] [SDCF] Overflow: loaded U+57CE style 0 on demand (slot 107/128)
+[33481] [DBG] [SDCF] Overflow: loaded U+795E style 0 on demand (slot 108/128)
+[33504] [DBG] [SDCF] Overflow: loaded U+5F13 style 0 on demand (slot 109/128)
+[33531] [DBG] [SDCF] Overflow: loaded U+9000 style 0 on demand (slot 110/128)
+[33554] [DBG] [SDCF] Overflow: loaded U+54CD style 0 on demand (slot 111/128)
+[33578] [DBG] [SDCF] Overflow: loaded U+9A6C style 0 on demand (slot 112/128)
+[33601] [DBG] [SDCF] Overflow: loaded U+671D style 0 on demand (slot 113/128)
+[33626] [DBG] [SDCF] Overflow: loaded U+5929 style 0 on demand (slot 114/128)
+[33649] [DBG] [SDCF] Overflow: loaded U+5B50 style 0 on demand (slot 115/128)
+[33673] [DBG] [SDCF] Overflow: loaded U+8D24 style 0 on demand (slot 116/128)
+[33696] [DBG] [SDCF] Overflow: loaded U+58EB style 0 on demand (slot 117/128)
+[33722] [DBG] [SDCF] Overflow: loaded U+8BF7 style 0 on demand (slot 118/128)
+[33746] [DBG] [SDCF] Overflow: loaded U+8FD8 style 0 on demand (slot 119/128)
+[33769] [DBG] [SDCF] Overflow: loaded U+4E61 style 0 on demand (slot 120/128)
+[33775] [DBG] [GFX] Time = 863 ms from clearScreen to displayBuffer
+[33775]   Writing frame buffer to BW RAM (48000 bytes)...
+KEY down injected
+[33781] [INF] [IN] press edge @33781
+[33783] [DBG] [SND] 880 Hz 34 ms amp=1 queued=1
+[33787]   BW RAM write complete (12 ms)
+[33787]   display 0xFC (fast refresh)...
+[33787]   Waiting for display refresh...
+[33940] [DBG] [SND] amp off
+[34268]   Wait complete: fast (481 ms)
+[34469]   Wait complete: power-off (1 ms)
+[34469]   Writing frame buffer to BW RAM (48000 bytes)...
+[34480]   BW RAM write complete (11 ms)
+[34480]   Writing frame buffer to RED RAM (48000 bytes)...
+[34492]   RED RAM write complete (12 ms)
+[34492] [INF] [EPD] buffer mode=2 ms=717
+[34518]   Loading custom LUT...
+[34520]   Custom LUT loaded
+[34520]   Powering on display 0xCF (custom LUT refresh)...
+[34520]   Waiting for display refresh...
+[34802]   Wait complete: custom (282 ms)
+[34802]   Custom LUT disabled
+[34802]   Writing frame buffer to RED RAM (48000 bytes)...
+[34813]   RED RAM write complete (11 ms)
+[34814] [DBG] [ERS] Staged render: copy=1ms status=432ms display=717ms gray_lsb=13ms gray_msb=13ms gray_display=284ms cleanup=12ms total=1472ms
+[34814] [DBG] [ERS] Rendered staged page in 1472ms
+[34832] [DBG] [SCT] Deserialization succeeded: 14 pages
+[34841] [SCT] File does not exist: /.crosspoint/epub_3244291313/sections/296.bin
+[34841] [DBG] [ERS] Silently indexing next chapter: 296
+[34842] [DBG] [NCI] Background indexing spine 296 started
+[34862] [DBG] [SCT] Deserialization succeeded: 13 pages
+KEY down injected
+[34876] [INF] [IN] press edge @34876
+[34878] [DBG] [SND] 880 Hz 34 ms amp=1 queued=1
+[35039] [DBG] [SND] amp off
+[35271] [INF] [ZIP] Central directory cached: 170629 B in 336ms (2583 entries)
+[35394] [DBG] [ZIP] Decompressed 6483 bytes into 14342 bytes
+[35408] [DBG] [SCT] streamed item: 500ms (14342 bytes, chunk 8192)
+[35414] [DBG] [SCT] Streamed temp HTML to /.crosspoint/epub_3244291313/.tmp_296.html (14342 bytes)
+[35468] [DBG] [CSS] Loaded 0 rules from cache
+[35526] [DBG] [SDCF] meta span: n=74 range=[3351..24418] slots=21068
+[35586] [DBG] [SDCF] Advance table style 0: +16 from SD, total=2754/16384
+[35740] [DBG] [SDCF] bmp span: n=74 range=[322912..4182915] span=3860003 payload=29807
+KEY down injected
+[35982] [INF] [IN] press edge @35982
+[35984] [DBG] [SND] 880 Hz 34 ms amp=1 queued=1
+[36141] [DBG] [SND] amp off
+[36189] [DBG] [SDCF] io: style=0 glyphs=177 meta=212ms/71seek bmp=451ms/71seek/29807B
+[36192] [DBG] [SDCF] prewarm: mask=0x01 cp=177 total=679ms sd=663ms seeks=142 glyphs=177 bytes=29807 fill=505/9000
+[36202] [DBG] [SCT] Page 0 processed
+[36246] [DBG] [SCT] Page 1 processed
+[36286] [DBG] [SCT] Page 2 processed
+[36341] [DBG] [SCT] Page 3 processed
+[36363] [DBG] [ERS] Staged spine 294 page 2 in 853ms
+[36380] [DBG] [SDCF] Advance table style 0: +2 from SD, total=2756/16384
+[36418] [DBG] [ERS] Progress saved: spine=294 page=3
+[36631] [INF] [DISP] frame 7 'EpubReader'
+[36631] [DBG] [RND] rendering 'EpubReader'
+[36631] [DBG] [ERS] Stage key mismatch: have (294,2,13,464,764,2558845316) want (294,3,13,464,764,2558845316)
+[37074] [DBG] [SCT] Page 4 processed
+KEY down injected
+[37080] [INF] [IN] press edge @37080
+[37083] [DBG] [SND] 880 Hz 34 ms amp=1 queued=1
+[37098] [DBG] [SDCF] Advance table style 0: +2 from SD, total=2758/16384
+[37126] [DBG] [SDCF] meta span: n=50 range=[3057..21525] slots=18469
+[37133] [DBG] [SDCF] Advance table style 0: +1 from SD, total=2759/16384
+[37243] [DBG] [SND] amp off
+[37284] [DBG] [SDCF] bmp span: n=50 range=[271872..3653668] span=3381796 payload=28063
+[37620] [DBG] [SDCF] io: style=0 glyphs=166 meta=156ms/50seek bmp=338ms/50seek/28063B
+[37623] [DBG] [SDCF] prewarm: mask=0x01 cp=166 total=517ms sd=494ms seeks=100 glyphs=166 bytes=28063 fill=555/9000
+[37636] [DBG] [SCT] Page 5 processed
+[37668] [DBG] [SDCF] Advance table style 0: +2 from SD, total=2761/16384
+[37696] [DBG] [SDCF] Advance table style 0: +1 from SD, total=2762/16384
+[37721] [DBG] [GFX] Time = 617 ms from clearScreen to displayBuffer
+[37721]   Writing frame buffer to BW RAM (48000 bytes)...
+[37733]   BW RAM write complete (12 ms)
+[37733] [DBG] [SCT] Page 6 processed
+[37733]   Powering on display 0xFC (fast refresh)...
+[37734]   Waiting for display refresh...
+[37791] [DBG] [SDCF] Advance table style 0: +9 from SD, total=2771/16384
+[37825] [DBG] [SCT] Page 7 processed
+[37859] [DBG] [SCT] Page 8 processed
+[37913] [DBG] [SCT] Page 9 processed
+[37948] [DBG] [SCT] Page 10 processed
+[38001] [DBG] [SCT] Page 11 processed
+[38025] [DBG] [SDCF] Advance table style 0: +2 from SD, total=2773/16384
+[38057] [DBG] [SCT] Page 12 processed
+[38077] [DBG] [SDCF] Advance table style 0: +1 from SD, total=2774/16384
+[38105] [DBG] [SDCF] Advance table style 0: +3 from SD, total=2777/16384
+[38130] [DBG] [SCT] Page 13 processed
+[38133] [DBG] [EHP] Time to parse and build pages: 2636 ms
+[38133] [DBG] [EHP] Advance prewarm: 4 chunk(s), 125 ms
+[38147] [DBG] [SCT] Page 14 processed
+KEY down injected
+[38178] [INF] [IN] press edge @38178
+[38180] [DBG] [SND] 880 Hz 34 ms amp=1 queued=1
+[38214]   Wait complete: fast (480 ms)
+[38340] [DBG] [NCI] Background indexing spine 296 done
+[38341] [DBG] [SND] amp off
+[38415]   Wait complete: power-off (1 ms)
+[38415]   Writing frame buffer to BW RAM (48000 bytes)...
+[38426]   BW RAM write complete [38426]   Writing frame buffer to RED RAM (48000 bytes)...
+[38438]   RED RAM write complete (12 ms)
+[38438] [INF] [EPD] buffer mode=2 ms=717
+[38594]   Loading custom LUT...
+[38595]   Custom LUT loaded
+[38596]   Powering on display 0xCF (custom LUT refresh)...
+[38596]   Waiting for display refresh...
+[38878]   Wait complete: custom (282 ms)
+[38878]   Custom LUT disabled
+[38878]   Writing frame buffer to RED RAM (48000 bytes)...
+[38889]   RED RAM write complete (11 ms)
+[38889] [DBG] [ERS] Page render (tiled): prewarm=519ms scan=2ms fontpw=517ms bw_render=98ms display=717ms gray_lsb=76ms gray_msb=80ms gray_display=284ms cleanup=11ms total=1785ms
+[38890] [DBG] [ERS] Rendered page in 1786ms
+[38909] [DBG] [SCT] Deserialization succeeded: 14 pages
+[38926] [DBG] [SCT] Deserialization succeeded: 15 pages
+[38944] [DBG] [SCT] Deserialization succeeded: 13 pages
+[38995] [DBG] [SDCF] meta span: n=39 range=[3063..21673] slots=18611
+[39064] [DBG] [SDCF] bmp span: n=39 range=[272878..3679576] span=3406698 payload=25878
+[39175] [DBG] [SDCF] io: style=0 glyphs=153 meta=67ms/39seek bmp=113ms/39seek/25878B
+[39176] [DBG] [SDCF] prewarm: mask=0x01 cp=153 total=191ms sd=180ms seeks=78 glyphs=153 bytes=25878 fill=594/9000
+KEY down injected
+[39277] [INF] [IN] press edge @39277
+[39279] [DBG] [SND] 880 Hz 34 ms amp=1 queued=1
+[39310] [DBG] [ERS] Staged spine 294 page 6 in 328ms
+[39353] [DBG] [ERS] Progress saved: spine=294 page=6
+[39368] [INF] [DISP] frame 8 'EpubReader'
+[39368] [DBG] [RND] rendering 'EpubReader'
+[39395] [DBG] [GFX] Time = 128 ms from clearScreen to displayBuffer
+[39396]   Writing frame buffer to BW RAM (48000 bytes)...
+[39407]   BW RAM write complete (11 ms)
+[39408]   Powering on display 0xFC (fast refresh)...
+[39408]   Waiting for display refresh...
+[39437] [DBG] [SND] amp off
+[39888]   Wait complete: fast (480 ms)
+[40089]   Wait complete: power-off (0 ms)
+[40089]   Writing frame buffer to BW RAM (48000 bytes)...
+[40100]   BW RAM write complete (11 ms)
+[40100]   Writing frame buffer to RED RAM (48000 bytes)...
+[40112]   RED RAM write complete (12 ms)
+[40112] [INF] [EPD] buffer mode=2 ms=716
+[40139]   Loading custom LUT...
+[40140]   Custom LUT loaded
+[40140]   Powering on display 0xCF (custom LUT refresh)...
+[40140]   Waiting for display refresh...
+KEY down injected
+[40383] [INF] [IN] press edge @40383
+[40385] [DBG] [SND] 880 Hz 34 ms amp=1 queued=1
+[40421]   Wait complete: custom (281 ms)
+[40422]   Custom LUT disabled
+[40422]   Writing frame buffer to RED RAM (48000 bytes)...
+[40433]   RED RAM write complete (11 ms)
+[40433] [DBG] [ERS] Staged render: copy=1ms status=26ms display=717ms gray_lsb=13ms gray_msb=14ms gray_display=283ms cleanup=11ms total=1065ms
+[40434] [DBG] [ERS] Rendered staged page in 1066ms
+[40452] [DBG] [SCT] Deserialization succeeded: 14 pages
+[40470] [DBG] [SCT] Deserialization succeeded: 15 pages
+[40487] [DBG] [SCT] Deserialization succeeded: 13 pages
+[40540] [DBG] [SDCF] meta span: n=60 range=[3209..22644] slots=19436
+[40542] [DBG] [SND] amp off
+[40623] [DBG] [SDCF] bmp span: n=60 range=[296601..3858273] span=3561672 payload=28908
+[40774] [DBG] [SDCF] io: style=0 glyphs=172 meta=82ms/60seek bmp=152ms/60seek/28908B
+[40775] [DBG] [SDCF] prewarm: mask=0x01 cp=172 total=246ms sd=234ms seeks=120 glyphs=172 bytes=28908 fill=654/9000
+[40910] [DBG] [ERS] Staged spine 294 page 8 in 384ms
+[40951] [DBG] [ERS] Progress saved: spine=294 page=7
+[40966] [INF] [DISP] frame 9 'EpubReader'
+[40967] [DBG] [RND] rendering 'EpubReader'
+[40967] [DBG] [ERS] Stage key mismatch: have (294,8,13,464,764,2558845316) want (294,7,13,464,764,2558845316)
+[41019] [DBG] [SDCF] meta span: n=44 range=[3131..23798] slots=20668
+[41081] [DBG] [SDCF] bmp span: n=44 range=[283744..4071134] span=3787390 payload=28814
+[41198] [DBG] [SDCF] io: style=0 glyphs=168 meta=61ms/44seek bmp=118ms/44seek/28814B
+[41198] [DBG] [SDCF] prewarm: mask=0x01 cp=168 total=190ms sd=179ms seeks=88 glyphs=168 bytes=28814 fill=698/9000
+[41273] [DBG] [GFX] Time = 267 ms from clearScreen to displayBuffer
+[41274]   Writing frame buffer to BW RAM (48000 bytes)...
+[41285]   BW RAM write complete (11 ms)
+[41285]   Powering on display 0xFC (fast refresh)[41766]   Wait complete: fast (480 ms)
+[41967]   Wait complete: power-off (1 ms)
+[41967]   Writing frame buffer to BW RAM (48000 bytes)...
+[41978]   BW RAM write complete (11 ms)
+[41978]   Writing frame buffer to RED RAM (48000 bytes)...
+[41990]   RED RAM write complete (12 ms)
+[41990] [INF] [EPD] buffer mode=2 ms=716
+[42132]   Loading custom LUT...
+[42133]   Custom LUT loaded
+[42133]   Powering on display 0xCF (custom LUT refresh)...
+[42133]   Waiting for display refresh...
+[42160] [INF] [MEM] Free: 129356 bytes, Total: 257568 bytes, Min Free: 83968 bytes, MaxAlloc: 63476 bytes PsramT: 8388608 PsramF: 7199260
+[42414]   Wait complete: custom (281 ms)
+[42415]   Custom LUT disabled
+[42415]   Writing frame buffer to RED RAM (48000 bytes)...
+[42426]   RED RAM write complete (11 ms)
+[42426] [DBG] [ERS] Page render (tiled): prewarm=192ms scan=2ms fontpw=190ms bw_render=75ms display=717ms gray_lsb=68ms gray_msb=74ms gray_display=283ms cleanup=11ms total=1420ms
+[42427] [DBG] [ERS] Rendered page in 1421ms
+[42446] [DBG] [SCT] Deserialization succeeded: 14 pages
+[42463] [DBG] [SCT] Deserialization succeeded: 15 pages
+[42481] [DBG] [SCT] Deserialization succeeded: 13 pages
+[42520] [DBG] [ERS] Progress saved: spine=294 page=7
+[42535] [INF] [DISP] frame 10 'EpubReader'
+[42539] [DBG] [PWR] CPU frequency -> 10 MHz
+KEY down injected
+[44623] [DBG] [PWR] CPU frequency -> 240 MHz
+[44626] [INF] [IN] press edge @44626
+[44629] [DBG] [SND] 880 Hz 34 ms amp=1 queued=1
+[44629] [DBG] [RND] rendering 'EpubReader'
+[44658] [DBG] [GFX] Time = 2538 ms from clearScreen to displayBuffer
+[44659]   Writing frame buffer to BW RAM (48000 bytes)...
+[44670]   BW RAM write complete (11 ms)
+[44670]   Powering on display 0xFC (fast refresh)...
+[44670]   Waiting for display refresh...
+[44786] [DBG] [SND] amp off
+[45151]   Wait complete: fast (481 ms)
+[45352]   Wait complete: power-off (0 ms)
+[45352]   Writing frame buffer to BW RAM (48000 bytes)...
+[45363]   BW RAM write complete (11 ms)
+[45363]   Writing frame buffer to RED RAM (48000 bytes)...
+[45375]   RED RAM write complete (12 ms)
+[45375] [INF] [EPD] buffer mode=2 ms=717
+[45402]   Loading custom LUT...
+[45403]   Custom LUT loaded
+[45403]   Powering on display 0xCF (custom LUT refresh)...
+[45403]   Waiting for display refresh...
+[45684]   Wait complete: custom (281 ms)
+[45685]   Custom LUT disabled
+[45685]   Writing frame buffer to RED RAM (48000 bytes)...
+[45696]   RED RAM write complete (11 ms)
+[45696] [DBG] [ERS] Staged render: copy=1ms status=28ms display=717ms gray_lsb=13ms gray_msb=14ms gray_display=283ms cleanup=11ms total=1067ms
+[45697] [DBG] [ERS] Rendered staged page in 1068ms
+[45715] [DBG] [SCT] Deserialization succeeded: 14 pages
+[45732] [DBG] [SCT] Deserialization succeeded: 15 pages
+[45750] [DBG] [SCT] Deserialization succeeded: 13 pages
+[45806] [DBG] [SDCF] meta span: n=35 range=[183..22121] slots=21939
+[45865] [DBG] [SDCF] bmp span: n=35 range=[7445..3761183] span=3753738 payload=27539
+[45956] [DBG] [SDCF] io: style=0 glyphs=169 meta=58ms/35seek bmp=92ms/35seek/27539B
+[45956] [DBG] [SDCF] prewarm: mask=0x01 cp=169 total=163ms sd=150ms seeks=70 glyphs=169 bytes=27539 fill=733/9000
+[46093] [DBG] [ERS] Staged spine 294 page 9 in 302ms
+[46134] [DBG] [ERS] Progress saved: spine=294 page=8
+[46149] [INF] [DISP] frame 11 'EpubReader'
+[46645] [DBG] [PWR] CPU frequency -> 10 MHz
+KEY ok injected
+[48726] [DBG] [PWR] CPU frequency -> 240 MHz
+[48729] [INF] [IN] press edge @48729
+[48732] [DBG] [SND] 1250 Hz 16 ms amp=1 queued=1
+[48757] [DBG] [ACT] Pushed to activity stack, new size = 1
+[48757] [DBG] [ACT] Entering activity: EpubReaderMenu
+[48757] [INF] [MENU] sel=0 act=0
+[48757] [DBG] [RND] rendering 'EpubReaderMenu'
+[48793] [DBG] [SDCF] Overflow: loaded U+8282 style 0 on demand (slot 121/128)
+[48818] [DBG] [SDCF] Overflow: loaded U+9875 style 0 on demand (slot 122/128)
+[48845] [DBG] [SDCF] Overflow: loaded U+5207 style 0 on demand (slot 123/128)
+[48868] [DBG] [SDCF] Overflow: loaded U+6362 style 0 on demand (slot 124/128)
+[48872] [DBG] [SND] amp off
+[48891] [DBG] [SDCF] Overflow: loaded U+7B7E style 0 on demand (slot 125/128)
+[48916] [DBG] [SDCF] Overflow: loaded U+7AE5 style 0 on demand (slot 126/128)
+[48940] [DBG] [SDCF] Overflow: loaded U+6717 style 0 on demand (slot 127/128)
+[48964] [DBG] [SDCF] Overflow: loaded U+6A21 style 0 on demand (slot 0/128)
+[48987] [DBG] [SDCF] Overflow: loaded U+5F0F style 0 on demand (slot 1/128)
+[49013] [DBG] [SDCF] Overflow: loaded U+8BED style 0 on demand (slot 2/128)
+[49038] [DBG] [SDCF] Overflow: loaded U+97F3 style 0 on demand (slot 3/128)
+[49063] [DBG] [SDCF] Overflow: loaded U+67E5 style 0 on demand (slot 4/128)
+[49086] [DBG] [SDCF] Overflow: loaded U+5B57 style 0 on demand (slot 5/128)
+[49110] [DBG] [SDCF] Overflow: loaded U+7AD6 style 0 on demand (slot 6/128)
+[49134] [DBG] [SDCF] Overflow: loaded U+5C4F style 0 on demand (slot 7/128)
+[49158] [DBG] [SDCF] Overflow: loaded U+65B9 style 0 on demand (slot 8/128)
+[49181] [DBG] [SDCF] Overflow: loaded U+5411 style 0 on demand (slot 9/128)
+[49207] [DBG] [SDCF] Overflow: loaded U+5173 style 0 on demand (slot 10/128)
+[49231] [DBG] [SDCF] Overflow: loaded U+81EA style 0 on demand (slot 11/128)
+[49256] [DBG] [SDCF] Overflow: loaded U+7FFB style 0 on demand (slot 13/128)
+[49280] [DBG] [SDCF] Overflow: loaded U+6BCF style 0 on demand (slot 14/128)
+[49303] [DBG] [SDCF] Overflow: loaded U+5206 style 0 on demand (slot 15/128)
+[49329] [DBG] [SDCF] Overflow: loaded U+949F style 0 on demand (slot 16/128)
+[49353] [DBG] [SDCF] Overflow: loaded U+6570 style 0 on demand (slot 17/128)
+[49379] [DBG] [SDCF] Overflow: loaded U+4E13 style 0 on demand (slot 19/128)
+[49402] [DBG] [SDCF] Overflow: loaded U+6CE8 style 0 on demand (slot 20/128)
+[49426] [DBG] [SDCF] Overflow: loaded U+8BA1 style 0 on demand (slot 21/128)
+[49449] [DBG] [SDCF] Overflow: loaded U+65F6 style 0 on demand (slot 22/128)
+[49475] [DBG] [SDCF] Overflow: loaded U+8DF3 style 0 on demand (slot 23/128)
+[49500] [DBG] [SDCF] Overflow: loaded U+8F6C style 0 on demand (slot 24/128)
+[49523] [DBG] [SDCF] Overflow: loaded U+5230 style 0 on demand (slot 25/128)
+[49548] [DBG] [SDCF] Overflow: loaded U+622A style 0 on demand (slot 26/128)
+[49571] [DBG] [SDCF] Overflow: loaded U+56FE style 0 on demand (slot 27/128)
+[49595] [DBG] [SDCF] Overflow: loaded U+4EE5 style 0 on demand (slot 28/128)
+[49618] [DBG] [SDCF] Overflow: loaded U+7EF4 style 0 on demand (slot 29/128)
+[49641] [DBG] [SDCF] Overflow: loaded U+7801 style 0 on demand (slot 30/128)
+[49664] [DBG] [SDCF] Overflow: loaded U+663E style 0 on demand (slot 31/128)
+[49689] [DBG] [SDCF] Overflow: loaded U+793A style 0 on demand (slot 32/128)
+[49714] [DBG] [SDCF] Overflow: loaded U+865A style 0 on demand (slot 33/128)
+[49738] [DBG] [SDCF] Overflow: loaded U+7EBF style 0 on demand (slot 34/128)
+[49741] [DBG] [GFX] Time = 984 ms from clearScreen to displayBuffer
+[49742]   Writing frame buffer to BW RAM (48000 bytes)...
+[49753]   BW RAM write complete (11 ms)
+[49753]   Powering on display 0xFC (fast refresh)...
+[49753]   Waiting for display refresh...
+[50234]   Wait complete: fast (481 ms)
+[50435]   Wait complete: power-off (1 ms)
+[50435]   Writing frame buffer to BW RAM (48000 bytes)...
+[50446]   BW RAM write complete (11 ms)
+[50446]   Writing frame buffer to RED RAM (48000 bytes)...
+[50458]   RED RAM write complete (12 ms)
+[50458] [INF] [EPD] buffer mode=2 ms=717
+[50458] [INF] [DISP] frame 12 'EpubReaderMenu'
+[50743] [DBG] [PWR] CPU frequency -> 10 MHz
+[52178] [INF] [MEM] Free: 146304 bytes, Total: 257568 bytes, Min Free: 83968 bytes, MaxAlloc: 63476 bytes PsramT: 8388608 PsramF: 7222428
+[62207] [INF] [MEM] Free: 146304 bytes, Total: 257568 bytes, Min Free: 83968 bytes, MaxAlloc: 63476 bytes PsramT: 8388608 PsramF: 7222428
+[62413] [DBG] [PWR] CPU frequency -> 240 MHz
+[64412] [DBG] [PWR] CPU frequency -> 10 MHz
+[72222] [INF] [MEM] Free: 146304 bytes, Total: 257568 bytes, Min Free: 83968 bytes, MaxAlloc: 63476 bytes PsramT: 8388608 PsramF: 7222428

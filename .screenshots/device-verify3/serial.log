@@ -1,0 +1,540 @@
+296] [INF] [ACC] MSA311 found at 0x62: X=-8 mg Y=91 mg Z=993 mg
+[297] [INF] [TILT] accelerometer tilt gestures enabled
+[297] [INF] [CLK] PCF8563 RTC found (clock not set)
+[317] [INF] [ENV] SHT30 found: 18.3 C, 28 %RH
+[317] [INF] [MAIN] Hardware detect: X4
+[20518] [INF] [MEM] Free: 161248 bytes, Total: 257568 bytes, Min Free: 149148 bytes, MaxAlloc: 118772 bytes PsramT: 8388608 PsramF: 7990508
+GO_HOME ok
+[22523] [DBG] [ACT] Exiting activity: Home
+[22528] [DBG] [ACT] Entering activity: Home
+[22829] [DBG] [LOOP] New max loop duration: 313 ms (activity: 306 ms)
+[22834] [DBG] [RND] rendering 'Home'
+[22903]   Transparent image drawn to frame buffer
+[22904]   Transparent image drawn to frame buffer
+[22905]   Transparent image drawn to frame buffer
+[22906]   Transparent image drawn to frame buffer
+[22907]   Transparent image drawn to frame buffer
+[22908]   Transparent image drawn to frame buffer
+[22908]   Transparent image drawn to frame buffer
+[22909]   Transparent image drawn to frame buffer
+[22910]   Transparent image drawn to frame buffer
+[22912] [DBG] [GFX] Time = 78 ms from clearScreen to displayBuffer
+[22912]   Writing frame buffer to BW RAM (48000 bytes)...
+[22923]   BW RAM write complete (11 ms)
+[22924]   Powering on display 0xFC (fast refresh)...
+[22924]   Waiting for display refresh...
+[23405]   Wait complete: fast (481 ms)
+[23605]   Wait complete: power-off (0 ms)
+[23606]   Writing frame buffer to BW RAM (48000 bytes)...
+[23617]   BW RAM write complete (11 ms)
+[23617]   Writing frame buffer to RED RAM (48000 bytes)...
+[23628]   RED RAM write complete (11 ms)
+[23629] [INF] [EPD] buffer mode=2 ms=717
+[23637] [INF] [DISP] frame 2 'Home'
+[23644] [DBG] [PWR] CPU frequency -> 10 MHz
+KEY ok injected
+[24528] [DBG] [PWR] CPU frequency -> 240 MHz
+[24531] [INF] [IN] press edge @24531
+[24531] [INF] [AUD] amp ground off, creating I2S TX channel
+[24532] [INF] [AUD] I2S TX channel created, configuring std mode
+[24532] [INF] [AUD] std mode configured, enabling channel
+[24533] [INF] [AUD] MAX98357A I2S TX up at 16000 Hz
+[24564] [DBG] [SND] 1250 Hz 16 ms amp=1 queued=1
+[24575] [DBG] [ACT] Exiting activity: Home
+[24576] [DBG] [ACT] Entering activity: Reader
+[24600] [DBG] [SDCF] Overflow: loaded U+52A0 style 0 on demand (slot 69/128)
+[24624] [DBG] [SDCF] Overflow: loaded U+8F7D style 0 on demand (slot 70/128)
+[24625] [DBG] [GFX] Time = 1791 ms from clearScreen to displayBuffer
+[24625]   Writing frame buffer to BW RAM (48000 bytes)...
+[24637]   BW RAM write complete (12 ms)
+[24637]   Powering on display 0xFC (fast refresh)...
+[24637]   Waiting for display refresh...
+[25118]   Wait complete: fast (481 ms)
+[25318]   Wait complete: power-off (0 ms)
+[25318]   Writing frame buffer to BW RAM (48000 bytes)...
+[25329]   BW RAM write complete (11 ms)
+[25329]   Writing frame buffer to RED RAM (48000 bytes)...
+[25341]   RED RAM write complete (12 ms)
+[25341] [INF] [EPD] buffer mode=2 ms=716
+[25345] [DBG] [EBP] Loading ePub: /世界少年文学经典文库·中国经典篇（全套30册）.epub
+[25357] [DBG] [BMC] Loaded cache data: 2086 spine, 1931 TOC entries
+[25358] [DBG] [GFX] Time = 2524 ms from clearScreen to displayBuffer
+[25358]   Writing frame buffer to BW RAM (48000 bytes)...
+[25369]   BW RAM write complete (11 ms)
+[25370]   Powering on display 0xFC (fast refresh)...
+[25370]   Waiting for display refresh...
+[25851]   Wait complete: fast (481 ms)
+[26051]   Wait complete: power-off (0 ms)
+[26051]   Writing frame buffer to BW RAM (48000 bytes)...
+[26062]   BW RAM write complete (11 ms)
+[26062]   Writing frame buffer to RED RAM (48000 bytes)...
+[26074]   RED RAM write complete (12 ms)
+[26074] [INF] [EPD] buffer mode=2 ms=716
+[26092] [DBG] [CSS] Loaded 0 rules from cache
+[26092] [DBG] [EBP] Loaded ePub: /世界少年文学经典文库·中国经典篇（全套30册）.epub
+[26093] [DBG] [GFX] Time = 3259 ms from clearScreen to displayBuffer
+[26093]   Writing frame buffer to BW RAM (48000 bytes)...
+[26104]   BW RAM write complete (11 ms)
+[26104]   Powering on display 0xFC (fast refresh)...
+[26104]   Waiting for display refresh...
+[26586]   Wait complete: fast (482 ms)
+[26786]   Wait complete: power-off (0 ms)
+[26786]   Writing frame buffer to BW RAM (48000 bytes)...
+[26797]   BW RAM write complete (11 ms)
+[26797]   Writing frame buffer to RED RAM (48000 bytes)...
+[26809]   RED RAM write complete (12 ms)
+[26809] [INF] [EPD] buffer mode=2 ms=716
+[26809] [DBG] [ACT] Exiting activity: Reader
+[26809] [DBG] [ACT] Entering activity: EpubReader
+[26850] [INF] [PRG] Recovered progress from slot B seq 859
+[26850] [DBG] [ERS] Loaded cache (slot): 292, 10
+[27199] [DBG] [LOOP] New max loop durati4 ms)
+[27199] [DBG] [RND] rendering 'EpubReader'
+[27202] [DBG] [ERS] Loading file: text/part0230.html, index: 292
+[27209] [DBG] [SND] amp off
+[27217] [DBG] [SCT] Deserialization succeeded: 11 pages
+[27217] [DBG] [ERS] Cache found, skipping build...
+[27217] [DBG] [GFX] Time = 0 ms from clearScreen to displayBuffer
+[27217]   Writing frame buffer to BW RAM (48000 bytes)...
+[27229]   BW RAM write complete (12 ms)
+[27229]   Powering on display 0xFC (fast refresh)...
+[27229]   Waiting for display refresh...
+[27710]   Wait complete: fast (481 ms)
+[27910]   Wait complete: power-off (0 ms)
+[27911]   Writing frame buffer to BW RAM (48000 bytes)...
+[27922]   BW RAM write complete (11 ms)
+[27922]   Writing frame buffer to RED RAM (48000 bytes)...
+[27934]   RED RAM write complete (12 ms)
+[27934] [INF] [EPD] buffer mode=2 ms=717
+[27983] [DBG] [SDCF] Kern classes + lig loaded: kernL=51, kernR=73, ligs=0
+[27993] [DBG] [SDCF] meta span: n=105 range=[1379..24635] slots=23257
+[28113] [DBG] [SDCF] bmp span: n=105 range=[111118..4196872] span=4085754 payload=17480
+[28361] [DBG] [SDCF] io: style=0 glyphs=105 meta=120ms/101seek bmp=248ms/101seek/17480B
+[28361] [DBG] [SDCF] prewarm: mask=0x01 cp=105 total=392ms sd=368ms seeks=202 glyphs=105 bytes=17480 fill=105/9000
+[28438] [DBG] [SDCF] Overflow: loaded U+7B2C style 0 on demand (slot 71/128)
+[28461] [DBG] [SDCF] Overflow: loaded U+4E8C style 0 on demand (slot 72/128)
+[28485] [DBG] [SDCF] Overflow: loaded U+5341 style 0 on demand (slot 73/128)
+[28508] [DBG] [SDCF] Overflow: loaded U+4E94 style 0 on demand (slot 74/128)
+[28531] [DBG] [SDCF] Overflow: loaded U+56DE style 0 on demand (slot 75/128)
+[28552] [DBG] [SDCF] Overflow: loaded U+3000 style 0 on demand (slot 76/128)
+[28575] [DBG] [SDCF] Overflow: loaded U+675C style 0 on demand (slot 77/128)
+[28601] [DBG] [SDCF] Overflow: loaded U+537F style 0 on demand (slot 78/128)
+[28624] [DBG] [SDCF] Overflow: loaded U+6177 style 0 on demand (slot 79/128)
+[28647] [DBG] [SDCF] Overflow: loaded U+6168 style 0 on demand (slot 80/128)
+[28670] [DBG] [SDCF] Overflow: loaded U+6563 style 0 on demand (slot 81/128)
+[28695] [DBG] [SDCF] Overflow: loaded U+5343 style 0 on demand (slot 82/128)
+[28719] [DBG] [SDCF] Overflow: loaded U+91D1 style 0 on demand (slot 83/128)
+[28742] [DBG] [SDCF] Overflow: loaded U+5A04 style 0 on demand (slot 84/128)
+[28766] [DBG] [SDCF] Overflow: loaded U+592A style 0 on demand (slot 85/128)
+[28791] [DBG] [SDCF] Overflow: loaded U+7237 style 0 on demand (slot 86/128)
+[28814] [DBG] [SDCF] Overflow: loaded U+4E34 style 0 on demand (slot 87/128)
+[28837] [DBG] [SDCF] Overflow: loaded U+53BB style 0 on demand (slot 88/128)
+[28862] [DBG] [SDCF] Overflow: loaded U+9057 style 0 on demand (slot 89/128)
+[28886] [DBG] [SDCF] Overflow: loaded U+5FE0 style 0 on demand (slot 90/128)
+[28910] [DBG] [SDCF] Overflow: loaded U+8A00 style 0 on demand (slot 91/128)
+[28915] [DBG] [GFX] Time = 947 ms from clearScreen to displayBuffer
+[28916]   Writing frame buffer to BW RAM (48000 bytes)...
+[28927]   BW RAM write complete (11 ms)
+[28927]   Powering on display 0xFC (fast refresh)...
+[28927]   Waiting for display refresh...
+[29408]   Wait complete: fast (481 ms)
+[29608]   Wait complete: power-off (0 ms)
+[29609]   Writing frame buffer to BW RAM (48000 bytes)...
+[29620]   BW RAM write complete (11 ms)
+[29620]   Writing frame buffer to RED RAM (48000 bytes)...
+[29632]   RED RAM write complete (12 ms)
+[29632] [INF] [EPD] buffer mode=2 ms=717
+[29732]   Loading custom LUT...
+[29734]   Custom LUT loaded
+[29734]   Powering on display 0xCF (custom LUT refresh)...
+[29734]   Waiting for display refresh...
+[30015]   Wait complete: custom (281 ms)
+[30016]   Custom LUT disabled
+[30016]   Writing frame buffer to RED RAM (48000 bytes)...
+[30027]   RED RAM write complete (11 ms)
+[30027] [DBG] [ERS] Page render (tiled): prewarm=392ms scan=0ms fontpw=392ms bw_render=554ms display=717ms gray_lsb=49ms gray_msb=51ms gray_display=284ms cleanup=11ms total=2058ms
+[30028] [DBG] [ERS] Rendered page in 2060ms
+[30047] [DBG] [SCT] Deserialization succeeded: 15 pages
+[30064] [DBG] [SCT] Deserialization succeeded: 13 pages
+[30082] [DBG] [SCT] Deserialization succeeded: 15 pages
+[30125] [DBG] [ERS] Page stage buffers: 48000 bytes x3 in PSRAM
+[30140] [DBG] [SDCF] meta span: n=105 range=[2979..24440] slots=21462
+[30259] [DBG] [SDCF] bmp span: n=104 range=[271079..4184495] span=3913416 payload=27408
+[30503] [DBG] [SDCF] io: style=0 glyphs=162 meta=118ms/102seek bmp=245ms/101seek/27408B
+[30503] [DBG] [SDCF] prewarm: mask=0x01 cp=162 total=375ms sd=363ms seeks=203 glyphs=162 bytes=27408 fill=209/9000
+[30636] [DBG] [ERS] Staged spine 293 page 0 in 511ms
+[30679] [DBG] [ERS] Progress saved: spine=292 page=10
+[30736] [INF] [DISP] frame 3 'EpubReader'
+[31161] [INF] [MEM] Free: 147464 bytes, Total: 257568 bytes, Min Free: 122312 bytes, MaxAlloc: 94196 bytes PsramT: 8388608 PsramF: 7511996
+[31465] [DBG] [PWR] CPU frequency -> 10 MHz
+[47520] [INF] [MEM] Free: 147464 bytes, Total: 257568 bytes, Min Free: 122312 bytes, MaxAlloc: 94196 bytes PsramT: 8388608 PsramF: 7511996
+KEY down injected
+[48526] [DBG] [PWR] CPU frequency -> 240 MHz
+[48529] [INF] [IN] press edge @48529
+[48531] [DBG] [SND] 880 Hz 34 ms amp=1 queued=1
+[48531] [INF] [ERS] chapter_completed spine=292 (invite offered)
+[48531] [DBG] [RND] rendering 'EpubReader'
+[48532] [DBG] [ERS] Stage key mismatch: have (293,0,15,464,764,2558845316) want (292,10,11,464,764,2558845316)
+[48577] [DBG] [SDCF] meta span: n=0 range=[2147483647..-2147483648] slots=0
+[48578] [DBG] [SDCF] io: style=0 glyphs=105 meta=0ms/0seek bmp=1ms/0seek/17480B
+[48578] [DBG] [SDCF] prewarm: mask=0x01 cp=105 total=11ms sd=1ms seeks=0 glyphs=105 bytes=17480 fill=209/9000
+[48661] [DBG] [SDCF] Overflow: loaded U+672C style 0 on demand (slot 92/128)
+[48684] [DBG] [SDCF] Overflow: loaded U+7AE0 style 0 on demand (slot 93/128)
+[48688] [DBG] [SND] amp off
+[48710] [DBG] [SDCF] Overflow: loaded U+8BFB style 0 on demand (slot 94/128)
+[48735] [DBG] [SDCF] Overflow: loaded U+5B8C style 0 on demand (slot 95/128)
+[48760] [DBG] [SDCF] Overflow: loaded U+FF1A style 0 on demand (slot 96/128)
+[48784] [DBG] [SDCF] Overflow: loaded U+548C style 0 on demand (slot 97/128)
+[48807] [DBG] [SDCF] Overflow: loaded U+804A style 0 on demand (slot 98/128)
+[48832] [DBG] [SDCF] Overflow: loaded U+8FD4 style 0 on demand (slot 99/128)
+[48856] [DBG] [SDCF] Overflow: loaded U+7EE7 style 0 on demand (slot 100/128)
+[48880] [DBG] [SDCF] Overflow: loaded U+7EED style 0 on demand (slot 101/128)
+[48904] [DBG] [SDCF] Overflow: loaded U+9605 style 0 on demand (slot 102/128)
+[48907] [DBG] [GFX] Time = 341 ms from clearScreen to displayBuffer
+[48907]   Writing frame buffer to BW RAM (48000 bytes)...
+[48918]   BW RAM write complete (11 ms)
+[48918]   Powering on display 0xFC (fast refresh)...
+[48919]   Waiting for display refresh...
+[49399]   Wait complete: fast (480 ms)
+[49599]   Wait complete: power-off (0 ms)
+[49600]   Writing frame buffer to BW RAM (48000 bytes)...
+[49611]   BW RAM write complete (11 ms)
+[49611]   Writing frame buffer to RED RAM (48000 bytes)...
+[49623]   RED RAM write complete (12 ms)
+[49623] [INF] [EPD] buffer mode=2 ms=716
+[49724]   Loading custom LUT...
+[49725]   Custom LUT loaded
+[49725]   Powering on display 0xCF (custom LUT refresh)...
+[49725]   Waiting for display refresh...
+[50006]   Wait complete: custom (281 ms)
+[50007]   Custom LUT disabled
+[50007]   Writing frame buffer to RED RAM (48000 bytes)...
+[50018]   RED RAM write complete (11 ms)
+[50018] [DBG] [ERS] Page render (tiled): prewarm=13ms scan=1ms fontpw=12ms bw_render=328ms display=716ms gray_lsb=49ms gray_msb=52ms gray_display=283ms cleanup=11ms total=1452ms
+[50019] [DBG] [ERS] Rendered page in 1453ms
+[50038] [DBG] [SCT] Deserialization succeeded: 15 pages
+[50055] [DBG] [SCT] Deserialization succeeded: 13 pages
+[50072] [DBG] [SCT] Deserialization succeeded: 15 pages
+[50114] [DBG] [ERS] Progress saved: spine=292 page=10
+[50129] [INF] [DISP] frame 4 'EpubReader'
+[50548] [DBG] [PWR] CPU frequency -> 10 MHz
+KEY ok injected
+[52611] [DBG] [PWR] CPU frequency -> 240 MHz
+[52614] [INF] [IN] press edge @52614
+[52617] [DBG] [SND] 1250 Hz 16 ms amp=1 queued=1
+[52628] [DBG] [ACT] Pushed to activity stack, new size = 1
+[52628] [DBG] [ACT] Entering activity: AskAi
+[52628] [INF] [WIFI] idle shutdown armed (60s of quiet)
+[52629] [DBG] [RND] rendering 'AskAi'
+[52658] [DBG] [SDCF] Overflow: loaded U+7AE5 style 0 on demand (slot 103/128)
+[52684] [DBG] [SDCF] Overflow: loaded U+5F85 style 0 on demand (slot 104/128)
+[52707] [DBG] [SDCF] Overflow: loaded U+5E94 style 0 on demand (slot 105/128)
+[52732] [DBG] [SDCF] Overflow: loaded U+8FD9 style 0 on demand (slot 106/128)
+[52755] [DBG] [SDCF] Overflow: loaded U+4E00 style 0 on demand (slot 107/128)
+[52778] [DBG] [SDCF] Overflow: loaded U+5148 style 0 on demand (slot 108/128)
+[52802] [DBG] [SDCF] Overflow: loaded U+7528 style 0 on demand (slot 109/128)
+[52825] [DBG] [SDCF] Overflow: loaded U+51E0 style 0 on demand (slot 110/128)
+[52848] [DBG] [SDCF] Overflow: loaded U+53E5 style 0 on demand (slot 111/128)
+[52873] [DBG] [SDCF] Overflow: loaded U+8BDD style 0 on demand (slot 112/128)
+[52898] [DBG] [SDCF] Overflow: loaded U+8BF4 style 0 on demand (slot 113/128)
+[52922] [DBG] [SDCF] Overflow: loaded U+4F60 style 0 on demand (slot 114/128)
+[52947] [DBG] [SDCF] Overflow: loaded U+5BF9 style 0 on demand (slot 115/128)
+[52971] [DBG] [SDCF] Overflow: loaded U+6838 style 0 on demand (slot 116/128)
+[52993] [DBG] [SDCF] Overflow: loaded U+5FC3 style 0 on demand (slot 117/128)
+[53017] [DBG] [SDCF] Overflow: loaded U+89C2 style 0 on demand (slot 118/128)
+[53040] [DBG] [SDCF] Overflow: loaded U+70B9 style 0 on demand (slot 119/128)
+[53063] [DBG] [SDCF] Overflow: loaded U+7684 style 0 on demand (slot 120/128)
+[53087] [DBG] [SDCF] Overflow: loaded U+7406 style 0 on demand (slot 121/128)
+[53112] [DBG] [SDCF] Overflow: loaded U+89E3 style 0 on demand (slot 122/128)
+[53136] [DBG] [SDCF] Overflow: loaded U+FF0C style 0 on demand (slot 123/128)
+[53159] [DBG] [SDCF] Overflow: loaded U+5FC5 style 0 on demand (slot 124/128)
+[53183] [DBG] [SDCF] Overflow: loaded U+8981 style 0 on demand (slot 125/128)
+[53206] [DBG] [SDCF] Overflow: loaded U+65F6 style 0 on demand (slot 126/128)
+[53231] [DBG] [SDCF] Overflow: loaded U+5F15 style 0 on demand (slot 127/128)
+[53255] [DBG] [SDCF] Overflow: loaded U+539F style 0 on demand (slot 0/128)
+[53279] [DBG] [SDCF] Overflow: loaded U+FF1B style 0 on demand (slot 1/128)
+[53301] [DBG] [SDCF] Overflow: loaded U+518D style 0 on demand (slot 2/128)
+[53324] [DBG] [SDCF] Overflow: loaded U+63D0 style 0 on demand (slot 3/128)
+[53347] [DBG] [SDCF] Overflow: loaded U+51FA style 0 on demand (slot 4/128)
+[53370] [DBG] [SDCF] Overflow: loaded U+4E24 style 0 on demand (slot 5/128)
+[53394] [DBG] [SDCF] Overflow: loaded U+4E2A style 0 on demand (slot 6/128)
+[53417] [DBG] [SDCF] Overflow: loaded U+80FD style 0 on demand (slot 7/128)
+[53440] [DBG] [SDCF] Overflow: loaded U+53D1 style 0 on demand (slot 8/128)
+[53465] [DBG] [SDCF] Overflow: loaded U+771F style 0 on demand (slot 9/128)
+[53489] [DBG] [SDCF] Overflow: loaded U+8BA8 style 0 on demand (slot 11/128)
+[53513] [DBG] [SDCF] Overflow: loaded U+8BBA style 0 on demand (slot 12/128)
+[53536] [DBG] [SDCF] Overflow: loaded U+5F00 style 0 on demand (slot 13/128)
+[53561] [DBG] [SDCF] Overflow: loaded U+653E style 0 on demand (slot 14/128)
+[53586] [DBG] [SDCF] Overflow: loaded U+95EE style 0 on demand (slot 15/128)
+[53610] [DBG] [SDCF] Overflow: loaded U+9898 style 0 on demand (slot 16/128)
+[53633] [DBG] [SDCF] Overflow: loaded U+3002 style 0 on demand (slot 17/128)
+[53656] [DBG] [SDCF] Overflow: loaded U+4E0D style 0 on demand (slot 18/128)
+[53680] [DBG] [SDCF] Overflow: loaded U+8FF0 style 0 on demand (slot 19/128)
+[53704] [DBG] [SDCF] Overflow: loaded U+8282 style 0 on demand (slot 20/128)
+[53718] [DBG] [GFX] Time = 1089 ms from clearScreen to displayBuffer
+[53719]   Writing frame buffer to BW RAM (48000 bytes)...
+[53730]   BW RAM write complete (11 ms)
+[53730]   Powering on display 0xFC (fast refresh)...
+[53730]   Waiting for display refresh...
+[54211]   Wait complete: fast (481 ms)
+[54411]   Wait complete: power-off (0 ms)
+[54412]   Writing frame buffer to BW RAM (48000 bytes)...
+[54423]   BW RAM write complete (11 ms)
+[54423]   Writing frame buffer to RED RAM (48000 bytes)...
+[54434]   RED RAM write complete (11 ms)
+[54434] [INF] [EPD] buffer mode=2 ms=716
+[54434] [INF] [DISP] frame 5 'AskAi'
+[54434] [DBG] [ACT] Pushed to activity stack, new size = 2
+[54435] [DBG] [ACT] Entering activity: WifiSelection
+[54447] [DBG] [WCS] Loaded 2 WiFi credentials from file
+[54447] [DBG] [WIFI] Auto-connect: scanning for saved networks
+[54595] [DBG] [RND] rendering 'WifiSelection'
+[54605] [DBG] [SND] amp off
+[54626] [DBG] [SDCF] Overflow: loaded U+7F51 style 0 on demand (slot 22/128)
+[54651] [DBG] [SDCF] Overflow: loaded U+7EDC style 0 on demand (slot 23/128)
+[54674] [DBG] [SDCF] Overflow: loaded U+627E style 0 on demand (slot 24/128)
+[54697] [DBG] [SDCF] Overflow: loaded U+5230 style 0 on demand (slot 25/128)
+[54723] [DBG] [SDCF] Overflow: loaded U+5730 style 0 on demand (slot 26/128)
+[54747] [DBG] [SDCF] Overflow: loaded U+5740 style 0 on demand (slot 27/128)
+[54773] [DBG] [SDCF] Overflow: loaded U+626B style 0 on demand (slot 29/128)
+[54797] [DBG] [SDCF] Overflow: loaded U+63CF style 0 on demand (slot 30/128)
+[54798] [DBG] [GFX] Time = 203 ms from clearScreen to displayBuffer
+[54798]   Writing frame buffer to BW RAM (48000 bytes)...
+[54810]   BW RAM write complete (12 ms)
+[54810]   Powering on display 0xFC (fast refresh)...
+[54810]   Waiting for display refresh...
+[55291]   Wait complete: fast (481 ms)
+[55491]   Wait complete: power-off (0 ms)
+[55492]   Writing frame buffer to BW RAM (48000 bytes)...
+[55503]   BW RAM write complete (11 ms)
+[55503]   Writing frame buffer to RED RAM (48000 bytes)...
+[55515]   RED RAM write complete (12 ms)
+[55515] [INF] [EPD] buffer mode=2 ms=717
+[55515] [INF] [DISP] frame 6 'WifiSelection'
+[57536] [INF] [MEM] Free: 103884 bytes, Total: 257568 bytes, Min Free: 102332 bytes, MaxAlloc: 63476 bytes PsramT: 8388608 PsramF: 7481076
+[57590] [DBG] [WIFI] Auto-connect: trying saved network zhou (-49 dBm)
+[57594] [DBG] [WIFI] phy cal nvs load=0x0 ver=711,97bcf0a2,Aug 25 2025,19:04:10
+[57594] [DBG] [WIFI] attempt: persistent done (+0 ms, iFree=103528, iLargest=61428)
+[57595] [DBG] [WIFI] attempt: mode STA done (+1 ms, iFree=103528, iLargest=61428)
+[57600] [DBG] [WIFI] attempt: disconnect done (+6 ms, iFree=128676, iLargest=61428)
+[57701] [DBG] [WIFI] attempt: hostname done (+107 ms, iFree=128580, iLargest=61428)
+[57718] [DBG] [WIFI] attempt: WiFi.begin returned (status=6, +124 ms)
+[57719] [DBG] [RND] rendering 'WifiSelection'
+[57824] [DBG] [SDCF] Overflow: loaded U+8FDE style 0 on demand (slot 31/128)
+[57849] [DBG] [SDCF] Overflow: loaded U+63A5 style 0 on demand (slot 32/128)
+[57873] [DBG] [SDCF] Overflow: loaded U+81F3 style 0 on demand (slot 33/128)
+[57874] [DBG] [GFX] Time = 155 ms from clearScreen to displayBuffer
+[57874]   Writing frame buffer to BW RAM (48000 bytes)...
+[57886]   BW RAM write complete (12 ms)
+[57886]   Powering on display 0xFC (fast refresh)...
+[57886]   Waiting for display refresh...
+[58367]   Wait complete: fast (481 ms)
+[58567]   Wait complete: power-off (0 ms)
+[58568]   Writing frame buffer to BW RAM (48000 bytes)...
+[58579]   BW RAM write[58579]   Writing frame buffer to RED RAM (48000 bytes)...
+[58591]   RED RAM write complete (12 ms)
+[58591] [INF] [EPD] buffer mode=2 ms=717
+[58591] [INF] [DISP] frame 7 'WifiSelection'
+[59159] [DBG] [WIFI] Connected with saved/open credentials, completing immediately
+[59160] [DBG] [ACT] Exiting activity: WifiSelection
+[59160] [DBG] [WIFI] Free heap at onExit start: 103200 bytes
+[59160] [DBG] [WIFI] Deleting WiFi scan...
+[59160] [DBG] [WIFI] Free heap after scanDelete: 103200 bytes
+[59160] [DBG] [WIFI] Free heap at onExit end: 103200 bytes
+[59160] [DBG] [ACT] Popped from activity stack, new size = 1
+[59160] [DBG] [ACT] Handling result for popped activity
+[59161] [INF] [CLD] loaded: relay=ws://118.25.20.250:8080/api/v1/voice/stream relayToken=set
+[59162] [DBG] [RND] rendering 'AskAi'
+[59179] [DBG] [GFX] Time = 17 ms from clearScreen to displayBuffer
+[59180]   Writing frame buffer to BW RAM (48000 bytes)...
+[59191]   BW RAM write complete (11 ms)
+[59191]   Powering on display 0xFC (fast refresh)...
+[59191]   Waiting for display refresh...
+[59672]   Wait complete: fast (481 ms)
+[59873]   Wait complete: power-off (1 ms)
+[59873]   Writing frame buffer to BW RAM (48000 bytes)...
+[59884]   BW RAM write complete (11 ms)
+[59884]   Writing frame buffer to RED RAM (48000 bytes)...
+[59895]   RED RAM write complete (11 ms)
+[59895] [INF] [EPD] buffer mode=2 ms=716
+[59896] [INF] [DISP] frame 8 'AskAi'
+[59909] [SD] File does not exist: /.crosspoint/books/世界少年文学经典文库·中国经典篇（全套30册）-c15ff4f1.id
+[59915] [INF] [ASK] book 36520269 bytes: skipping on-demand fingerprint, uncited Q&A
+[59948] [INF] [ASK] book id unavailable: uncited Q&A
+[59996] [DBG] [ASK] context page 10: 711 bytes (429 left)
+[59997] [INF] [NET] mbedTLS allocator: PSRAM-first
+[59998] [INF] [VCHAT] POST http://118.25.20.250:8080/api/v1/chat (1223 body bytes)
+E (61245) task_wdt: esp_task_wdt_reset(707): task not found
+[61271] [INF] [VCHAT] reply 509 bytes, strokes 0 bytes
+[61272] [INF] [ASK] relay reply 618 bytes (http 200)
+Directory already exists: /.crosspoint/notes
+[61291] [INF] [NOTE] note saved (727 bytes) -> 世界少年文学经典文库·中国经典篇（全套30册）
+[61296] [INF] [ASK] record saved to 世界少年文学经典文库·中国经典篇（全套30册） (spine 292 page 10/11)
+[61297] [DBG] [RND] rendering 'AskAi'
+[61328] [DBG] [SDCF] Overflow: loaded U+5DF2 style 0 on demand (slot 35/128)
+[61353] [DBG] [SDCF] Overflow: loaded U+5B58 style 0 on demand (slot 36/128)
+[61378] [DBG] [SDCF] Overflow: loaded U+5165 style 0 on demand (slot 37/128)
+[61401] [DBG] [SDCF] Overflow: loaded U+7B7E style 0 on demand (slot 38/128)
+[61442] [DBG] [SDCF] Overflow: loaded U+7B54 style 0 on demand (slot 39/128)
+[61469] [DBG] [SDCF] Overflow: loaded U+672A style 0 on demand (slot 40/128)
+[61493] [DBG] [SDCF] Overflow: loaded U+542B style 0 on demand (slot 42/128)
+[61520] [DBG] [SDCF] Overflow: loaded U+867D style 0 on demand (slot 44/128)
+[61545] [DBG] [SDCF] Overflow: loaded U+5BB6 style 0 on demand (slot 45/128)
+[61571] [DBG] [SDCF] Overflow: loaded U+9053 style 0 on demand (slot 46/128)
+[61597] [DBG] [SDCF] Overflow: loaded U+843D style 0 on demand (slot 47/128)
+[61620] [DBG] [SDCF] Overflow: loaded U+5374 style 0 on demand (slot 48/128)
+[61646] [DBG] [SDCF] Overflow: loaded U+4ECD style 0 on demand (slot 49/128)
+[61670] [DBG] [SDCF] Overflow: loaded U+4FDD style 0 on demand (slot 50/128)
+[61694] [DBG] [SDCF] Overflow: loaded U+6301 style 0 on demand (slot 51/128)
+[61717] [DBG] [SDCF] Overflow: loaded U+6D12 style 0 on demand (slot 52/128)
+[61740] [DBG] [SDCF] Overflow: loaded U+8131 style 0 on demand (slot 53/128)
+[61764] [DBG] [SDCF] Overflow: loaded U+4E0E style 0 on demand (slot 54/128)
+[61789] [DBG] [SDCF] Overflow: loaded U+5BBD style 0 on demand (slot 55/128)
+[61813] [DBG] [SDCF] Overflow: loaded U+5BB9 style 0 on demand (slot 56/128)
+[61836] [DBG] [SDCF] Overflow: loaded U+4ED6 style 0 on demand (slot 57/128)
+[61861] [DBG] [SDCF] Overflow: loaded U+5356 style 0 on demand (slot 58/128)
+[61888] [DBG] [SDCF] Overflow: loaded U+623F style 0 on demand (slot 59/128)
+[61913] [DBG] [SDCF] Overflow: loaded U+8D74 style 0 on demand (slot 60/128)
+[61936] [DBG] [SDCF] Overflow: loaded U+5357 style 0 on demand (slot 61/128)
+[61959] [DBG] [SDCF] Overflow: loaded U+4EAC style 0 on demand (slot 62/128)
+[61983] [DBG] [SDCF] Overflow: loaded U+4E3A style 0 on demand (slot 63/128)
+[62008] [DBG] [SDCF] Overflow: loaded U+8C0B style 0 on demand (slot 64/128)
+[62031] [DBG] [SDCF] Overflow: loaded U+5229 style 0 on demand (slot 65/128)
+[62054] [DBG] [SDCF] Overflow: loaded U+53EA style 0 on demand (slot 66/128)
+[62078] [DBG] [SDCF] Overflow: loaded U+5BFB style 0 on demand (slot 67/128)
+[62103] [DBG] [SDCF] Overflow: loaded U+5904 style 0 on demand (slot 68/128)
+[62126] [DBG] [SDCF] Overflow: loaded U+6E05 style 0 on demand (slot 69/128)
+[62151] [DBG] [SDCF] Overflow: loaded U+9759 style 0 on demand (slot 70/128)
+[62174] [DBG] [SDCF] Overflow: loaded U+4E4B style 0 on demand (slot 71/128)
+[62199] [DBG] [SDCF] Overflow: loaded U+5B89 style 0 on demand (slot 72/128)
+[62223] [DBG] [SDCF] Overflow: loaded U+8EAB style 0 on demand (slot 73/128)
+[62246] [DBG] [SDCF] Overflow: loaded U+7ACB style 0 on demand (slot 74/128)
+[62271] [DBG] [SDCF] Overflow: loaded U+547D style 0 on demand (slot 75/128)
+[62295] [DBG] [SDCF] Overflow: loaded U+4F53 style 0 on demand (slot 76/128)
+[62318] [DBG] [SDCF] Overflow: loaded U+73B0 style 0 on demand (slot 77/128)
+[62342] [DBG] [SDCF] Overflow: loaded U+5176 style 0 on demand (slot 78/128)
+[62366] [DBG] [SDCF] Overflow: loaded U+8D85 style 0 on demand (slot 79/128)
+[62390] [DBG] [SDCF] Overflow: loaded U+7136 style 0 on demand (slot 80/128)
+[62413] [DBG] [SDCF] Overflow: loaded U+7269 style 0 on demand (slot 81/128)
+[62439] [DBG] [SDCF] Overflow: loaded U+5916 style 0 on demand (slot 82/128)
+[62464] [DBG] [SDCF] Overflow: loaded U+4EBA style 0 on demand (slot 83/128)
+[62489] [DBG] [SDCF] Overflow: loaded U+98CE style 0 on demand (slot 84/128)
+[62516] [DBG] [SDCF] Overflow: loaded U+9AA8 style 0 on demand (slot 85/128)
+[62540] [DBG] [SDCF] Overflow: loaded U+4ED8 style 0 on demand (slot 86/128)
+[62564] [DBG] [SDCF] Overflow: loaded U+7B11 style 0 on demand (slot 87/128)
+[62588] [DBG] [SDCF] Overflow: loaded U+662F style 0 on demand (slot 88/128)
+[62611] [DBG] [SDCF] Overflow: loaded U+6DE1 style 0 on demand (slot 89/128)
+[62634] [DBG] [SDCF] Overflow: loaded U+6CCA style 0 on demand (slot 90/128)
+[62658] [DBG] [SDCF] Overflow: loaded U+540D style 0 on demand (slot 91/128)
+[62681] [DBG] [SDCF] Overflow: loaded U+3001 style 0 on demand (slot 92/128)
+[62706] [DBG] [SDCF] Overflow: loaded U+8BA1 style 0 on demand (slot 93/128)
+[62729] [DBG] [SDCF] Overflow: loaded U+5F97 style 0 on demand (slot 94/128)
+[62753] [DBG] [SDCF] Overflow: loaded U+5931 style 0 on demand (slot 95/128)
+[62777] [DBG] [SDCF] Overflow: loaded U+751F style 0 on demand (slot 96/128)
+[62801] [DBG] [SDCF] Overflow: loaded U+6001 style 0 on demand (slot 97/128)
+[62824] [DBG] [SDCF] Overflow: loaded U+5EA6 style 0 on demand (slot 98/128)
+[62848] [DBG] [SDCF] Overflow: loaded U+5199 style 0 on demand (slot 99/128)
+[62871] [DBG] [SDCF] Overflow: loaded U+7167 style 0 on demand (slot 100/128)
+[62909] [DBG] [SDCF] Overflow: loaded U+8D28 style 0 on demand (slot 104/128)
+[62934] [DBG] [SDCF] Overflow: loaded U+532E style 0 on demand (slot 105/128)
+[62957] [DBG] [SDCF] Overflow: loaded U+4E4F style 0 on demand (slot 106/128)
+[62981] [DBG] [SDCF] Overflow: loaded U+4EE3 style 0 on demand (slot 107/128)
+[63007] [DBG] [SDCF] Overflow: loaded U+4F55 style 0 on demand (slot 108/128)
+[63030] [DBG] [SDCF] Overflow: loaded U+575A style 0 on demand (slot 109/128)
+[63054] [DBG] [SDCF] Overflow: loaded U+4EE5 style 0 on demand (slot 110/128)
+[63077] [DBG] [SDCF] Overflow: loaded U+79CD style 0 on demand (slot 113/128)
+[63101] [DBG] [SDCF] Overflow: loaded U+5426 style 0 on demand (slot 116/128)
+[63126] [DBG] [SDCF] Overflow: loaded U+8868 style 0 on demand (slot 117/128)
+[63150] [DBG] [SDCF] Overflow: loaded U+81EA style 0 on demand (slot 119/128)
+[63175] [DBG] [SDCF] Overflow: loaded U+7531 style 0 on demand (slot 120/128)
+[63199] [DBG] [SDCF] Overflow: loaded U+FF1F style 0 on demand (slot 121/128)
+[63226] [DBG] [SDCF] Overflow: loaded U+5F53 style 0 on demand (slot 125/128)
+[63251] [DBG] [SDCF] Overflow: loaded U+4EC6 style 0 on demand (slot 126/128)
+[63275] [DBG] [SDCF] Overflow: loaded U+80CC style 0 on demand (slot 127/128)
+[63299] [DBG] [SDCF] Overflow: loaded U+53DB style 0 on demand (slot 0/128)
+[63324] [DBG] [SDCF] Overflow: loaded U+7A76 style 0 on demand (slot 3/128)
+[63350] [DBG] [SDCF] Overflow: loaded U+7ADF style 0 on demand (slot 4/128)
+[63375] [DBG] [SDCF] Overflow: loaded U+8C41 style 0 on demand (slot 5/128)
+[63400] [DBG] [SDCF] Overflow: loaded U+8FBE style 0 on demand (slot 6/128)
+[63425] [DBG] [SDCF] Overflow: loaded U+8FD8 style 0 on demand (slot 7/128)
+[63449] [DBG] [SDCF] Overflow: loaded U+5B9E style 0 on demand (slot 9/128)
+[63474] [DBG] [SDCF] Overflow: loaded U+9003 style 0 on demand (slot 10/128)
+[63499] [DBG] [SDCF] Overflow: loaded U+907F style 0 on demand (slot 11/128)
+[63553] [DBG] [SDCF] Overflow: loaded U+91CC style 0 on demand (slot 20/128)
+[63577] [DBG] [SDCF] Overflow: loaded U+54EA style 0 on demand (slot 21/128)
+[63601] [DBG] [SDCF] Overflow: loaded U+89E6 style 0 on demand (slot 26/128)
+[63625] [DBG] [SDCF] Overflow: loaded U+4EC0 style 0 on demand (slot 29/128)
+[63648] [DBG] [SDCF] Overflow: loaded U+4E48 style 0 on demand (slot 30/128)
+[63654] [DBG] [GFX] Time = 2357 ms from clearScreen to displayBuffer
+[63655]   Writing frame buffer to BW RAM (48000 bytes)...
+[63666]   BW RAM write complete (11 ms)
+[63666]   Powering on display 0xFC (fast refresh)...
+[63666]   Waiting for display refresh...
+[64147]   Wait complete: fast (481 ms)
+[64347]   Wait complete: power-off (0 ms)
+[64348]   Writing frame buffer to BW RAM (48000 bytes)...
+[64359]   BW RAM write complete (11 ms)
+[64359]   Writing frame buffer to RED RAM (48000 bytes)...
+[64371]   RED RAM write complete (12 ms)
+[64371] [INF] [EPD] buffer mode=2 ms=717
+[64371] [INF] [DISP] frame 9 'AskAi'
+[67545] [INF] [MEM] Free: 95420 bytes, Total: 257568 bytes, Min Free: 90280 bytes, MaxAlloc: 51188 bytes PsramT: 8388608 PsramF: 7465600
+[74761] [DBG] [TILT] aborted gesture (-3 deg)
+[74970] [DBG] [TILT] aborted gesture (-15 deg)
+[75097] [INF] [TILT] gesture forward (22 deg, 146 dps)
+[77556] [INF] [MEM] Free: 95148 bytes, Total: 257568 bytes, Min Free: 90280 bytes, MaxAlloc: 51188 bytes PsramT: 8388608 PsramF: 7465600
+[87562] [INF] [MEM] Free: 95148 bytes, Total: 257568 bytes, Min Free: 90280 bytes, MaxAlloc: 51188 bytes PsramT: 8388608 PsramF: 7465600
+KEY right injected
+[92572] [INF] [IN] press edge @92572
+[92574] [DBG] [SND] 1250 Hz 16 ms amp=1 queued=1
+[92574] [DBG] [RND] rendering 'AskAi'
+[92670] [DBG] [SDCF] Overflow: loaded U+540C style 0 on demand (slot 54/128)
+[92694] [DBG] [SDCF] Overflow: loaded U+610F style 0 on demand (slot 55/128)
+[92710] [DBG] [SND] amp off
+[92719] [DBG] [SDCF] Overflow: loaded U+4F5C style 0 on demand (slot 56/128)
+[92743] [DBG] [SDCF] Overflow: loaded U+8005 style 0 on demand (slot 57/128)
+[92767] [DBG] [SDCF] Overflow: loaded U+5224 style 0 on demand (slot 59/128)
+[92792] [DBG] [SDCF] Overflow: loaded U+65AD style 0 on demand (slot 60/128)
+[92817] [DBG] [SDCF] Overflow: loaded U+5417 style 0 on demand (slot 61/128)
+[92842] [DBG] [SDCF] Overflow: loaded U+6709 style 0 on demand (slot 62/128)
+[92866] [DBG] [SDCF] Overflow: loaded U+6CA1 style 0 on demand (slot 63/128)
+[92890] [DBG] [SDCF] Overflow: loaded U+76F8 style 0 on demand (slot 64/128)
+[92915] [DBG] [SDCF] Overflow: loaded U+53CD style 0 on demand (slot 65/128)
+[92922] [DBG] [GFX] Time = 348 ms from clearScreen to displayBuffer
+[92923]   Writing frame buffer to BW RAM (48000 bytes)...
+[92934]   BW RAM write complete (11 ms)
+[92934]   Powering on display 0xFC (fast refresh)...
+[92935]   Waiting for display refresh...
+[93415]   Wait complete: fast (480 ms)
+[93615]   Wait complete: power-off (0 ms)
+[93616]   Writing frame buffer to BW RAM (48000 bytes)...
+[93628]   BW RAM write complete (12 ms)
+[93628]   Writing frame buffer to RED RAM (48000 bytes)...
+[93639]   RED RAM write complete (11 ms)
+[93639] [INF] [[93639] [INF] [DISP] frame 10 'AskAi'
+KEY ok injected
+[95115] [INF] [IN] press edge @95115
+[95117] [DBG] [SND] 1250 Hz 16 ms amp=1 queued=1
+[95117] [DBG] [ACT] Pushed to activity stack, new size = 2
+[95118] [DBG] [ACT] Entering activity: Voice
+[95118] [INF] [VOICE] question mode: no Wi-Fi bring-up (status=3)
+[95118] [DBG] [RND] rendering 'Voice'
+[95118] [DBG] [VOICE] render state=0 noteMode=0
+[95151] [DBG] [SDCF] Overflow: loaded U+6309 style 0 on demand (slot 75/128)
+[95177] [DBG] [SDCF] Overflow: loaded U+952E style 0 on demand (slot 77/128)
+[95200] [DBG] [SDCF] Overflow: loaded U+59CB style 0 on demand (slot 78/128)
+[95225] [DBG] [SDCF] Overflow: loaded U+6211 style 0 on demand (slot 79/128)
+[95228] [DBG] [GFX] Time = 110 ms from clearScreen to displayBuffer
+[95229]   Writing frame buffer to BW RAM (48000 bytes)...
+[95240]   BW RAM write complete (11 ms)
+[95240]   Powering on display 0xFC (fast refresh)...
+[95240]   Waiting for display refresh...
+[95254] [DBG] [SND] amp off
+[95721]   Wait complete: fast (481 ms)
+[95921]   Wait complete: power-off (0 ms)
+[95922]   Writing frame buffer to BW RAM (48000 bytes)...
+[95933]   BW RAM wri[95933]   Writing frame buffer to RED RAM (48000 bytes)...
+[95945]   RED RAM write complete (12 ms)
+[95945] [INF] [EPD] buffer mode=2 ms=717
+[95945] [INF] [DISP] frame 11 'Voice'
+[97567] [INF] [MEM] Free: 95148 bytes, Total: 257568 bytes, Min Free: 90280 bytes, MaxAlloc: 51188 bytes PsramT: 8388608 PsramF: 7456012

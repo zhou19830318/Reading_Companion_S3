@@ -1,0 +1,694 @@
+"""Loopback-only setup page shared by the Linux and Windows deployments.
+
+The page answers the one question a first-time installer has: what do I paste
+into the reader's Settings -> Voice Relay card? It is reachable only from the
+host itself (127.0.0.1 / ::1) so the device token never leaks to the LAN by
+default. On a headless Ubuntu box use an SSH tunnel:
+
+    ssh -L 8000:127.0.0.1:8000 user@server
+    open http://127.0.0.1:8000/admin
+
+When RELAY_ADMIN_TOKEN is set the page also accepts
+`?token=<admin-token>` / `X-Admin-Token:` so an operator who knows the admin
+secret can read it remotely. nginx configs deliberately do not proxy /admin.
+"""
+
+from __future__ import annotations
+
+import ipaddress
+import socket
+
+from fastapi import BackgroundTasks, FastAPI, Request
+from fastapi.responses import HTMLResponse, JSONResponse
+from starlette.datastructures import UploadFile as StarletteUploadFile
+
+from . import SERVICE_NAME, __version__, library_api
+from .config import Settings, get_settings
+
+LOOPBACK_HOSTS = {"127.0.0.1", "::1", "::ffff:127.0.0.1"}
+DEFAULT_DEVICE_ID = "reading-companion-001"
+
+
+def _is_loopback(request: Request) -> bool:
+    client = request.client
+    return client is not None and client.host in LOOPBACK_HOSTS
+
+
+def _authorized(request: Request, settings: Settings) -> bool:
+    if _is_loopback(request):
+        return True
+    token = settings.relay_admin_token
+    if not token:
+        return False
+    supplied = request.headers.get("x-admin-token") or request.query_params.get("token")
+    return supplied == token
+
+
+def _lan_ips() -> list[str]:
+    """Best-effort LAN addresses. The UDP probe sends no packets; it only asks
+    the routing table which local address the default route would use, which
+    works on both Linux and Windows."""
+    found: list[str] = []
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as probe:
+            probe.connect(("8.8.8.8", 80))
+            found.append(probe.getsockname()[0])
+    except OSError:
+        pass
+    try:
+        for info in socket.getaddrinfo(socket.gethostname(), None, socket.AF_INET):
+            found.append(info[4][0])
+    except OSError:
+        pass
+    unique: list[str] = []
+    for ip in found:
+        if ip in unique:
+            continue
+        try:
+            addr = ipaddress.ip_address(ip)
+        except ValueError:
+            continue
+        # Loopback and APIPA (169.254.x.x) never reach a reader.
+        if addr.is_loopback or addr.is_link_local:
+            continue
+        unique.append(ip)
+    return unique
+
+
+def device_credentials(settings: Settings) -> tuple[str, str]:
+    """(deviceId, token) a reader should use.
+
+    A shared RELAY_DEVICE_TOKEN wins; otherwise the first entry of the
+    per-device map is shown. ALLOWED_DEVICE_IDS may narrow the id list, in
+    which case the first allowed id is paired with the shared token.
+    """
+    allowed = [item.strip() for item in settings.allowed_device_ids.split(",") if item.strip()]
+    token = settings.relay_device_token.strip()
+    if token:
+        return (allowed[0] if allowed else DEFAULT_DEVICE_ID), token
+    for pair in settings.relay_device_tokens.split(","):
+        if ":" not in pair:
+            continue
+        device_id, _, per_device_token = pair.partition(":")
+        device_id = device_id.strip()
+        per_device_token = per_device_token.strip()
+        if device_id and per_device_token:
+            return device_id, per_device_token
+    return (allowed[0] if allowed else DEFAULT_DEVICE_ID), ""
+
+
+def _status(settings: Settings, devices: list[dict] | None = None) -> dict:
+    report = settings.ready_report()
+    ready = report["asr"] == "configured" and report["llm"] == "configured"
+    device_id, token = device_credentials(settings)
+    lan_ips = _lan_ips()
+    relay_url = settings.relay_public_url.strip()
+    # Once /admin/devices has rows the registry is authoritative; show the
+    # first managed device rather than the now-unused environment fallback.
+    if devices:
+        first = devices[0]
+        device_id = first.get("deviceId") or device_id
+        token = first.get("deviceToken") or ""
+        relay_url = first.get("relayUrl") or relay_url
+    if not relay_url:
+        host = lan_ips[0] if lan_ips else "<this-host-ip>"
+        relay_url = f"ws://{host}:{settings.relay_port}/api/v1/voice/stream"
+    return {
+        "service": SERVICE_NAME,
+        "version": settings.relay_version,
+        "relayVersion": __version__,
+        "env": settings.relay_env,
+        "ready": ready,
+        "status": report,
+        "bind": settings.relay_bind,
+        "port": settings.relay_port,
+        "lanIps": lan_ips,
+        "relayUrl": relay_url,
+        "deviceId": device_id,
+        "deviceToken": token,
+        "limits": {
+            "maxSessions": settings.max_concurrent_sessions,
+            "maxSessionsPerDevice": settings.max_sessions_per_device,
+            "maxConnections": settings.max_ws_connections,
+            "idleTimeoutSeconds": settings.session_idle_timeout_seconds,
+        },
+    }
+
+
+ADMIN_HTML = """<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Voice Relay - 部署状态</title>
+<style>
+  :root { color-scheme: light dark; --fg:#1a1a1a; --bg:#f6f6f4; --card:#fff; --muted:#666; --line:#ddd; --ok:#1a7f37; --warn:#9a6700; --bad:#b42318; }
+  @media (prefers-color-scheme: dark) { :root { --fg:#e6e6e3; --bg:#141414; --card:#1e1e1e; --muted:#9a9a96; --line:#333; --ok:#4ade80; --warn:#fbbf24; --bad:#f87171; } }
+  * { box-sizing: border-box; }
+  body { margin:0; font:15px/1.5 -apple-system, "Segoe UI", "Noto Sans SC", sans-serif; color:var(--fg); background:var(--bg); }
+  header { display:flex; align-items:center; gap:12px; padding:20px 24px 0; max-width:760px; margin:0 auto; }
+  h1 { font-size:20px; margin:0; flex:1; }
+  .badge { font-size:13px; padding:4px 10px; border-radius:999px; border:1px solid var(--line); background:var(--card); }
+  .badge.ok { color:var(--ok); border-color:var(--ok); }
+  .badge.warn { color:var(--warn); border-color:var(--warn); }
+  main { max-width:760px; margin:0 auto; padding:16px 24px 40px; display:grid; gap:14px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px 18px; }
+  h2 { font-size:15px; margin:0 0 12px; }
+  h2 small { color:var(--muted); font-weight:400; margin-left:6px; }
+  label { display:block; margin:10px 0 2px; color:var(--muted); font-size:12px; }
+  .row { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  code { font:13px/1.6 ui-monospace, "Cascadia Mono", Consolas, monospace; word-break:break-all; flex:1; min-width:0; }
+  button { font:13px inherit; padding:5px 12px; border-radius:8px; border:1px solid var(--line); background:transparent; color:var(--fg); cursor:pointer; }
+  button:hover { border-color:var(--muted); }
+  input[type="password"], input[type="text"] { width:100%; margin-top:2px; padding:7px 10px; border:1px solid var(--line); border-radius:8px; background:var(--bg); color:var(--fg); font:13px ui-monospace, "Cascadia Mono", Consolas, monospace; }
+  .chips { display:flex; gap:8px; flex-wrap:wrap; }
+  .device { border-top:1px solid var(--line); padding:10px 0; }
+  .device:first-of-type { border-top:0; }
+  .device-head { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  .device-id { font:600 13px ui-monospace, "Cascadia Mono", Consolas, monospace; word-break:break-all; }
+  .device-actions { margin-left:auto; display:flex; gap:6px; }
+  .device-meta { color:var(--muted); font-size:12px; margin-top:3px; word-break:break-all; }
+  .book { border-top:1px solid var(--line); padding:10px 0; }
+  .book:first-of-type { border-top:0; }
+  .book-head { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  .book-title { font-weight:600; font-size:14px; word-break:break-word; }
+  .book-actions { margin-left:auto; }
+  .book-meta { color:var(--muted); font-size:12px; margin-top:3px; word-break:break-all; }
+  .annotation { border-top:1px solid var(--line); padding:10px 0; }
+  .annotation:first-of-type { border-top:0; }
+  .annotation-quote { font-size:13px; border-left:3px solid var(--line); padding-left:10px; margin:4px 0; }
+  .annotation-meta { color:var(--muted); font-size:12px; word-break:break-all; }
+  .device-form-title { color:var(--muted); font-weight:400; margin-left:6px; }
+  .chip { font-size:12px; padding:3px 9px; border-radius:999px; border:1px solid var(--line); }
+  .chip.ok { color:var(--ok); border-color:var(--ok); }
+  .chip.warn { color:var(--warn); border-color:var(--warn); }
+  .chip.bad { color:var(--bad); border-color:var(--bad); }
+  .hint { color:var(--muted); font-size:13px; margin:10px 0 0; }
+  .kv { display:grid; grid-template-columns:150px 1fr; gap:4px 12px; font-size:13px; }
+  .kv span:nth-child(odd) { color:var(--muted); }
+  footer { max-width:760px; margin:0 auto; padding:0 24px 30px; color:var(--muted); font-size:12px; }
+  #toast { position:fixed; left:50%; bottom:24px; transform:translateX(-50%); background:var(--fg); color:var(--bg); padding:8px 16px; border-radius:999px; font-size:13px; opacity:0; transition:opacity .2s; pointer-events:none; }
+  #toast.show { opacity:1; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Reading Companion Voice Relay</h1>
+  <span id="badge" class="badge">连接中…</span>
+</header>
+<main>
+  <section class="card">
+    <h2>设备配置 <small>注册表非空时显示第一台受管设备，否则为环境变量回退</small></h2>
+    <label>Relay URL</label>
+    <div class="row"><code id="relayUrl">…</code><button data-copy="relayUrl">复制</button></div>
+    <label>Device ID</label>
+    <div class="row"><code id="deviceId">…</code><button data-copy="deviceId">复制</button></div>
+    <label>Token</label>
+    <div class="row">
+      <code id="deviceToken">••••••••••••</code>
+      <button id="reveal" type="button">显示</button>
+      <button data-copy="tokenValue" type="button">复制</button>
+    </div>
+    <p class="hint">首次使用可在下方“设备管理”新增设备；设备用现有 URL / Token / Device ID 认证后会拉取服务端配置。新增设备后，未登记的 Device ID 将不能访问 relay。</p>
+  </section>
+
+  <section class="card">
+    <h2>设备管理 <small>服务端保存 Relay URL / Token / Device ID</small></h2>
+    <div id="deviceList"><p class="hint">加载中…</p></div>
+    <form id="deviceForm" autocomplete="off">
+      <h2 style="margin-top:16px">新增 / 编辑设备 <span class="device-form-title" id="deviceFormTitle"></span></h2>
+      <label for="device-id">Device ID</label>
+      <input type="text" id="device-id" placeholder="onepage-001" spellcheck="false">
+      <label for="device-name">名称（可选）</label>
+      <input type="text" id="device-name" placeholder="客厅阅读器" spellcheck="false">
+      <label for="device-url">Relay URL</label>
+      <input type="text" id="device-url" placeholder="ws://host:8080/api/v1/voice/stream" spellcheck="false">
+      <label for="device-token">Token（新增留空自动生成；编辑留空保持不变）</label>
+      <input type="text" id="device-token" spellcheck="false">
+      <div class="row" style="margin-top:10px">
+        <button id="deviceSave" type="submit">保存设备</button>
+        <button id="deviceNew" type="button">新增设备</button>
+      </div>
+      <p class="hint">设备先用现有的 URL / Token / Device ID 认证，之后可从 <code>/api/v1/device/config</code> 拉取这里的配置；Token 变更后有 15 分钟旧 Token 过渡期。</p>
+    </form>
+  </section>
+
+  <section class="card">
+    <h2>阅读书库 <small>上传 EPUB/TXT，服务端解析段落并建立引用索引</small></h2>
+    <form id="bookForm" autocomplete="off">
+      <label for="book-file">书籍文件（EPUB / TXT，最大 64 MiB）</label>
+      <input type="file" id="book-file" accept=".epub,.txt">
+      <label for="book-title">标题（可选，缺省取文件名/元数据）</label>
+      <input type="text" id="book-title" spellcheck="false">
+      <label for="book-author">作者（可选）</label>
+      <input type="text" id="book-author" spellcheck="false">
+      <div class="row" style="margin-top:10px">
+        <button id="bookUpload" type="submit">上传并索引</button>
+        <button id="bookRefresh" type="button">刷新列表</button>
+      </div>
+      <p class="hint">上传后服务端解析 &lt;p&gt;/&lt;li&gt; 段落并建立 FTS5 索引；同一文件（SHA-256 相同）不会重复解析。</p>
+      <p class="hint">隐私：服务端不保存原始语音；引用、批注与 AI 摘要只保存文本。</p>
+    </form>
+    <div id="bookList"><p class="hint">加载中…</p></div>
+  </section>
+
+  <section class="card">
+    <h2>笔记与引用 <small>只读；由设备同步写入</small></h2>
+    <div id="annotationList"><p class="hint">加载中…</p></div>
+  </section>
+
+  <section class="card">
+    <h2>服务状态</h2>
+    <div class="chips" id="providers"></div>
+    <div class="kv" style="margin-top:12px">
+      <span>版本</span><span id="version">…</span>
+      <span>运行环境</span><span id="env">…</span>
+      <span>监听</span><span id="listen">…</span>
+      <span>局域网地址</span><span id="lanIps">…</span>
+    </div>
+    <p class="hint" id="mockHint" hidden>当前为 mock 模式：语音回合返回固定文本。在配置文件中填入 DashScope API Key 并重启服务即可切换真实语音。</p>
+    <p class="hint" id="tlsHint" hidden>设备走 ws:// 明文连接。若经公网使用，请通过 nginx/Caddy 提供 wss:// 并在设备上填写域名地址。</p>
+  </section>
+
+  <section class="card">
+    <h2>并发限制</h2>
+    <div class="chips" id="limits"></div>
+    <p class="hint">多台阅读器可共用本中继；每个设备同时只跑一个语音会话。</p>
+  </section>
+</main>
+<footer>本页面仅允许从本机访问（127.0.0.1 / ::1）。Windows 服务：ReadingCompanionVoiceRelay。</footer>
+<div id="toast"></div>
+<script>
+let tokenValue = "";
+const adminToken = new URLSearchParams(location.search).get("token") || "";
+const adminHeaders = adminToken ? { "X-Admin-Token": adminToken } : {};
+const $ = (id) => document.getElementById(id);
+function chip(cls, text) { const el = document.createElement("span"); el.className = "chip " + cls; el.textContent = text; return el; }
+function providerChip(name, value) {
+  const cls = value === "configured" || value === "mock" || value === "local" ? "ok" : (value === "missing_config" || value === "local_missing_data" ? "bad" : "warn");
+  return chip(cls, name + ": " + value);
+}
+function toast(text) { const el = $("toast"); el.textContent = text; el.classList.add("show"); setTimeout(() => el.classList.remove("show"), 1400); }
+async function copyText(text, label) {
+  try { await navigator.clipboard.writeText(text); toast(label + " 已复制"); }
+  catch (e) { const ta = document.createElement("textarea"); ta.value = text; document.body.appendChild(ta); ta.select(); document.execCommand("copy"); ta.remove(); toast(label + " 已复制"); }
+}
+function escapeHtml(value) {
+  return String(value == null ? "" : value).replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]));
+}
+let deviceRows = [];
+function deviceFormReset() {
+  for (const id of ["device-id", "device-name", "device-url", "device-token"]) $(id).value = "";
+  $("device-id").readOnly = false;
+  $("deviceFormTitle").textContent = "";
+}
+function deviceEdit(device) {
+  $("device-id").value = device.deviceId || "";
+  $("device-id").readOnly = true;
+  $("device-name").value = device.name || "";
+  $("device-url").value = device.relayUrl || "";
+  $("device-token").value = device.deviceToken || "";
+  $("deviceFormTitle").textContent = "· " + (device.deviceId || "");
+  $("deviceForm").scrollIntoView({ behavior: "smooth", block: "nearest" });
+}
+function renderDevices(devices) {
+  deviceRows = devices || [];
+  const root = $("deviceList");
+  root.replaceChildren();
+  if (!deviceRows.length) {
+    const hint = document.createElement("p");
+    hint.className = "hint";
+    hint.textContent = "还没有服务端设备，当前使用环境变量中的默认 Token。新增一台设备后，设备配置以本页为准。";
+    root.appendChild(hint);
+    return;
+  }
+  for (const device of deviceRows) {
+    const row = document.createElement("div");
+    row.className = "device";
+    const token = device.deviceToken ? "••••••••" : "(未配置)";
+    row.innerHTML =
+      '<div class="device-head"><span class="device-id">' + escapeHtml(device.deviceId) + "</span>" +
+      '<span class="device-actions"><button type="button" data-device-action="edit">编辑</button><button type="button" data-device-action="delete">删除</button></span></div>' +
+      '<div class="device-meta">' + escapeHtml(device.name || "未命名") + " · Token " + token +
+      (device.relayUrl ? " · " + escapeHtml(device.relayUrl) : "") + "</div>";
+    row.querySelector('[data-device-action="edit"]').addEventListener("click", () => deviceEdit(device));
+    row.querySelector('[data-device-action="delete"]').addEventListener("click", () => deleteDevice(device.deviceId));
+    root.appendChild(row);
+  }
+}
+async function devicesRefresh() {
+  try {
+    const res = await fetch("/admin/devices", { cache: "no-store", headers: adminHeaders });
+    if (!res.ok) throw new Error(String(res.status));
+    const body = await res.json();
+    renderDevices(body.devices || []);
+  } catch (e) {
+    $("deviceList").innerHTML = '<p class="hint">设备列表读取失败</p>';
+  }
+}
+async function deleteDevice(deviceId) {
+  if (!confirm("删除设备 " + deviceId + "？删除后该设备不能再访问 relay。")) return;
+  const res = await fetch("/admin/devices?deviceId=" + encodeURIComponent(deviceId), { method: "DELETE", headers: adminHeaders });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok || !body.ok) { toast(body.message || "删除失败"); return; }
+  toast("设备已删除");
+  deviceFormReset();
+  devicesRefresh();
+}
+async function saveDevice() {
+  const deviceId = $("device-id").value.trim();
+  if (!/^[A-Za-z0-9._-]{1,64}$/.test(deviceId)) { toast("Device ID 只能包含字母、数字、. _ -"); return; }
+  const body = {
+    deviceId,
+    name: $("device-name").value.trim(),
+    relayUrl: $("device-url").value.trim(),
+    deviceToken: $("device-token").value.trim()
+  };
+  const res = await fetch("/admin/devices", {
+    method: "POST", headers: { ...adminHeaders, "Content-Type": "application/json" }, body: JSON.stringify(body)
+  });
+  const result = await res.json().catch(() => ({}));
+  if (!res.ok || !result.ok) { toast(result.message || "保存失败"); return; }
+  toast("设备已保存");
+  deviceFormReset();
+  devicesRefresh();
+}
+function statusClass(status) {
+  if (status === "ready") return "ok";
+  if (status === "failed") return "bad";
+  return "warn";
+}
+function renderBooks(books) {
+  const root = $("bookList");
+  root.replaceChildren();
+  if (!books.length) {
+    const hint = document.createElement("p");
+    hint.className = "hint";
+    hint.textContent = "书库为空。上传一本 EPUB/TXT 后，设备即可进行有引用的问答。";
+    root.appendChild(hint);
+    return;
+  }
+  for (const book of books) {
+    const row = document.createElement("div");
+    row.className = "book";
+    const percent = Math.round((book.progress || 0) * 100);
+    const error = book.error ? " · " + escapeHtml(book.error.code + ": " + book.error.message) : "";
+    row.innerHTML =
+      '<div class="book-head"><span class="book-title">' + escapeHtml(book.title || book.book_id) + "</span>" +
+      '<span class="chip ' + statusClass(book.status) + '">' + escapeHtml(book.status) + " " + percent + "%</span>" +
+      '<span class="book-actions"><button type="button" data-book-delete="' + escapeHtml(book.book_id) + '">删除</button></span></div>' +
+      '<div class="book-meta">' + escapeHtml(book.author || "未知作者") + " · " + escapeHtml(book.book_id) +
+      " · " + book.chapters + " 章 / " + book.passages + " 段" + error + "</div>";
+    row.querySelector("[data-book-delete]").addEventListener("click", () => deleteBook(book.book_id, book.title));
+    root.appendChild(row);
+  }
+}
+function renderAnnotations(items) {
+  const root = $("annotationList");
+  root.replaceChildren();
+  if (!items.length) {
+    const hint = document.createElement("p");
+    hint.className = "hint";
+    hint.textContent = "还没有同步上来的笔记或引用。";
+    root.appendChild(hint);
+    return;
+  }
+  for (const item of items) {
+    const row = document.createElement("div");
+    row.className = "annotation";
+    row.innerHTML =
+      '<div class="annotation-quote">' + escapeHtml(item.quote || "(无引用原文)") + "</div>" +
+      (item.note ? '<div class="annotation-quote">' + escapeHtml(item.note) + "</div>" : "") +
+      '<div class="annotation-meta">' + escapeHtml(item.kind) + " · " + escapeHtml(item.book_id) +
+      " · " + escapeHtml(item.passage_id || "无段落") + " · " + escapeHtml(item.updated_at) + "</div>";
+    root.appendChild(row);
+  }
+}
+async function libraryRefresh() {
+  try {
+    const res = await fetch("/admin/library", { cache: "no-store", headers: adminHeaders });
+    if (!res.ok) throw new Error(String(res.status));
+    const body = await res.json();
+    renderBooks(body.books || []);
+    renderAnnotations(body.annotations || []);
+  } catch (e) {
+    $("bookList").innerHTML = '<p class="hint">书库读取失败</p>';
+    $("annotationList").innerHTML = '<p class="hint">笔记读取失败</p>';
+  }
+}
+async function deleteBook(bookId, title) {
+  if (!confirm("删除《" + (title || bookId) + "》？服务端会隐藏这本书，设备和历史笔记不会被立即清除。")) return;
+  const res = await fetch("/admin/library/books?bookId=" + encodeURIComponent(bookId), { method: "DELETE", headers: adminHeaders });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok || !body.ok) { toast(body.message || "删除失败"); return; }
+  toast("书籍已删除");
+  libraryRefresh();
+}
+async function uploadBook(ev) {
+  ev.preventDefault();
+  const file = $("book-file").files[0];
+  if (!file) { toast("请选择 EPUB 或 TXT 文件"); return; }
+  const form = new FormData();
+  form.append("file", file);
+  form.append("title", $("book-title").value.trim());
+  form.append("author", $("book-author").value.trim());
+  const button = $("bookUpload");
+  button.disabled = true;
+  button.textContent = "上传中…";
+  try {
+    const res = await fetch("/admin/library/upload", { method: "POST", headers: adminHeaders, body: form });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok || !body.ok) { toast(body.message || body.error || "上传失败"); return; }
+    toast(body.duplicate ? "该书已存在，未重复解析" : "上传成功，正在索引");
+    $("bookForm").reset();
+    libraryRefresh();
+  } finally {
+    button.disabled = false;
+    button.textContent = "上传并索引";
+  }
+}
+async function refresh() {
+  try {
+    const res = await fetch("/admin/status", { cache: "no-store", headers: adminHeaders });
+    if (!res.ok) throw new Error(String(res.status));
+    const s = await res.json();
+    $("badge").textContent = s.ready ? "运行中 · 已就绪" : "运行中 · 配置不完整";
+    $("badge").className = "badge " + (s.ready ? "ok" : "warn");
+    $("relayUrl").textContent = s.relayUrl;
+    $("deviceId").textContent = s.deviceId || "(未配置)";
+    tokenValue = s.deviceToken || "";
+    $("deviceToken").textContent = tokenValue ? "••••••••••••" : "(未配置)";
+    $("version").textContent = s.version + " (" + s.relayVersion + ")";
+    $("env").textContent = s.env;
+    $("listen").textContent = s.bind + ":" + s.port;
+    $("lanIps").textContent = (s.lanIps && s.lanIps.length) ? s.lanIps.join(", ") : "未检测到";
+    const providers = $("providers"); providers.replaceChildren(
+      providerChip("ASR", s.status.asr), providerChip("LLM", s.status.llm),
+      providerChip("字典", s.status.dict), providerChip("生图", s.status.t2i));
+    $("mockHint").hidden = !(s.status.asr === "mock" || s.status.llm === "mock");
+    $("tlsHint").hidden = !s.relayUrl.startsWith("ws://");
+    const limits = $("limits"); limits.replaceChildren(
+      chip("", "全局会话 " + s.limits.maxSessions),
+      chip("", "单设备会话 " + s.limits.maxSessionsPerDevice),
+      chip("", "WebSocket 上限 " + s.limits.maxConnections),
+      chip("", "空闲回收 " + s.limits.idleTimeoutSeconds + "s"));
+  } catch (e) {
+    $("badge").textContent = "无法连接";
+    $("badge").className = "badge warn";
+  }
+}
+document.addEventListener("click", (ev) => {
+  const btn = ev.target.closest("button[data-copy]");
+  if (!btn) return;
+  const what = btn.getAttribute("data-copy");
+  if (what === "tokenValue") { if (tokenValue) copyText(tokenValue, "Token"); else toast("Token 未配置"); return; }
+  const el = $(what); if (el) copyText(el.textContent, what === "relayUrl" ? "Relay URL" : "Device ID");
+});
+$("reveal").addEventListener("click", () => {
+  if (!tokenValue) { toast("Token 未配置"); return; }
+  const el = $("deviceToken");
+  const shown = el.dataset.shown === "1";
+  el.textContent = shown ? "••••••••••••" : tokenValue;
+  el.dataset.shown = shown ? "0" : "1";
+  $("reveal").textContent = shown ? "显示" : "隐藏";
+});
+$("deviceForm").addEventListener("submit", (ev) => { ev.preventDefault(); saveDevice(); });
+$("deviceNew").addEventListener("click", deviceFormReset);
+$("bookForm").addEventListener("submit", uploadBook);
+$("bookRefresh").addEventListener("click", libraryRefresh);
+refresh();
+devicesRefresh();
+libraryRefresh();
+setInterval(refresh, 5000);
+setInterval(devicesRefresh, 30000);
+setInterval(libraryRefresh, 15000);
+</script>
+</body>
+</html>
+"""
+
+
+def register_admin_routes(app: FastAPI) -> None:
+    @app.get("/admin", response_class=HTMLResponse)
+    async def admin_page(request: Request):  # noqa: ANN202 - FastAPI route
+        settings = get_settings()
+        if not _authorized(request, settings):
+            return HTMLResponse(
+                "<h1>403</h1><p>This page is only available from the relay host "
+                "(127.0.0.1). Use an SSH tunnel or set RELAY_ADMIN_TOKEN.</p>",
+                status_code=403,
+            )
+        return HTMLResponse(ADMIN_HTML)
+
+    @app.get("/admin/status")
+    async def admin_status(request: Request):
+        settings = get_settings()
+        if not _authorized(request, settings):
+            return JSONResponse(status_code=403, content={"error": "forbidden"})
+        store = getattr(request.app.state, "devices", None)
+        devices = store.list() if store is not None else []
+        return JSONResponse(content=_status(settings, devices))
+
+    def _devices_store(request: Request):
+        store = getattr(request.app.state, "devices", None)
+        if store is None:
+            return None, JSONResponse(status_code=503, content={"ok": False, "error": "devices_unavailable"})
+        return store, None
+
+    def _device_id_param(request: Request) -> str:
+        return request.query_params.get("deviceId", "").strip()
+
+    @app.get("/admin/devices")
+    async def admin_devices(request: Request):
+        settings = get_settings()
+        if not _authorized(request, settings):
+            return JSONResponse(status_code=403, content={"ok": False, "error": "forbidden"})
+        store, error = _devices_store(request)
+        if error is not None:
+            return error
+        return JSONResponse(content={"ok": True, "devices": store.list()})
+
+    @app.post("/admin/devices")
+    async def admin_devices_save(request: Request):
+        settings = get_settings()
+        if not _authorized(request, settings):
+            return JSONResponse(status_code=403, content={"ok": False, "error": "forbidden"})
+        store, error = _devices_store(request)
+        if error is not None:
+            return error
+        try:
+            payload = await request.json()
+        except Exception:  # noqa: BLE001 - malformed admin form body
+            return JSONResponse(status_code=400, content={"ok": False, "error": "invalid_json"})
+        if not isinstance(payload, dict):
+            return JSONResponse(status_code=400, content={"ok": False, "error": "invalid_json"})
+        try:
+            device = store.upsert(
+                payload.get("deviceId", ""),
+                name=payload.get("name") if "name" in payload else None,
+                relay_url=payload.get("relayUrl") if "relayUrl" in payload else None,
+                token=payload.get("deviceToken") or None,
+            )
+        except ValueError as exc:
+            return JSONResponse(status_code=400, content={"ok": False, "error": "invalid_device", "message": str(exc)})
+        return JSONResponse(content={"ok": True, "device": device})
+
+    @app.delete("/admin/devices")
+    async def admin_devices_delete(request: Request):
+        settings = get_settings()
+        if not _authorized(request, settings):
+            return JSONResponse(status_code=403, content={"ok": False, "error": "forbidden"})
+        store, error = _devices_store(request)
+        if error is not None:
+            return error
+        device_id = _device_id_param(request)
+        if not device_id:
+            return JSONResponse(status_code=400, content={"ok": False, "error": "device_id_required"})
+        deleted = store.delete(device_id)
+        return JSONResponse(content={"ok": True, "deleted": deleted, "deviceId": device_id})
+
+    # ------------------------------------------------------------------
+    # Reading library workbench (admin token, not device token). The device
+    # API stays under /api/v1/books; these routes only serve the local page.
+    # ------------------------------------------------------------------
+
+    def _library(request: Request):
+        store = getattr(request.app.state, "library", None)
+        if store is None:
+            return None, JSONResponse(status_code=503, content={"ok": False, "error": "library_unavailable"})
+        return store, None
+
+    @app.get("/admin/library")
+    async def admin_library(request: Request):
+        settings = get_settings()
+        if not _authorized(request, settings):
+            return JSONResponse(status_code=403, content={"ok": False, "error": "forbidden"})
+        store, error = _library(request)
+        if error is not None:
+            return error
+        return JSONResponse(
+            content={
+                "ok": True,
+                "books": store.list_books(limit=200),
+                "annotations": store.list_annotations(limit=100),
+            }
+        )
+
+    @app.post("/admin/library/upload")
+    async def admin_library_upload(request: Request, background_tasks: BackgroundTasks):
+        settings = get_settings()
+        if not _authorized(request, settings):
+            return JSONResponse(status_code=403, content={"ok": False, "error": "forbidden"})
+        store, error = _library(request)
+        if error is not None:
+            return error
+        try:
+            form = await request.form()
+        except Exception:  # noqa: BLE001 - malformed admin form body
+            return JSONResponse(status_code=400, content={"ok": False, "error": "invalid_multipart"})
+        upload = form.get("file")
+        if not isinstance(upload, StarletteUploadFile):
+            return JSONResponse(
+                status_code=400, content={"ok": False, "error": "file_required", "message": "请选择 EPUB 或 TXT 文件"}
+            )
+        try:
+            book, duplicate, path = await library_api.store_upload(
+                store,
+                upload,
+                title=str(form.get("title") or ""),
+                author=str(form.get("author") or ""),
+                max_bytes=settings.max_book_bytes,
+            )
+        except library_api.UploadError as exc:
+            return JSONResponse(
+                status_code=exc.status, content={"ok": False, "error": exc.code, "message": exc.message}
+            )
+        if duplicate:
+            return JSONResponse(content={"ok": True, "duplicate": True, "book": book})
+        assert path is not None
+        await library_api.start_ingest(
+            store,
+            book["book_id"],
+            path,
+            sync=settings.book_ingest_sync,
+            background_tasks=background_tasks,
+        )
+        return JSONResponse(
+            status_code=201,
+            content={"ok": True, "duplicate": False, "book": store.get_book(book["book_id"]) or book},
+        )
+
+    @app.delete("/admin/library/books")
+    async def admin_library_delete(request: Request):
+        settings = get_settings()
+        if not _authorized(request, settings):
+            return JSONResponse(status_code=403, content={"ok": False, "error": "forbidden"})
+        store, error = _library(request)
+        if error is not None:
+            return error
+        book_id = request.query_params.get("bookId", "").strip()
+        if not book_id:
+            return JSONResponse(status_code=400, content={"ok": False, "error": "book_id_required"})
+        deleted = store.delete_book(book_id)
+        return JSONResponse(content={"ok": True, "deleted": deleted, "bookId": book_id})
+

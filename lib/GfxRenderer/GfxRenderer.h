@@ -1,0 +1,328 @@
+#pragma once
+
+#include <EpdFontFamily.h>
+#include <HalDisplay.h>
+
+namespace BidiUtils {
+// Paragraph base direction for the Unicode BiDi algorithm (UAX#9).
+// AUTO: scan text for first strong directional character (P2/P3 rules)
+// LTR:  force left-to-right paragraph embedding level
+// RTL:  force right-to-left paragraph embedding level
+enum class BidiBaseDir : signed char { AUTO = -1, LTR = 0, RTL = 1 };
+}  // namespace BidiUtils
+
+class FontCacheManager;
+class SdCardFont;
+
+#include <cstring>
+#include <map>
+#include <string>
+#include <vector>
+
+#include "Bitmap.h"
+
+// Color representation: uint8_t mapped to 4x4 Bayer matrix dithering levels
+// 0 = transparent, 1-16 = gray levels (white to black)
+enum Color : uint8_t { Clear = 0x00, White = 0x01, LightGray = 0x05, DarkGray = 0x0A, Black = 0x10 };
+
+class GfxRenderer {
+ public:
+  enum RenderMode { BW, GRAYSCALE_LSB, GRAYSCALE_MSB };
+
+  // Logical screen orientation from the perspective of callers
+  enum Orientation {
+    Portrait,                  // 480x800 logical coordinates (current default)
+    LandscapeClockwise,        // 800x480 logical coordinates, rotated 180° (swap top/bottom)
+    PortraitInverted,          // 480x800 logical coordinates, inverted
+    LandscapeCounterClockwise  // 800x480 logical coordinates, native panel orientation
+  };
+
+ private:
+  static constexpr size_t BW_BUFFER_CHUNK_SIZE = 8000;  // 8KB chunks to allow for non-contiguous memory
+
+  HalDisplay& display;
+  RenderMode renderMode;
+  Orientation orientation;
+  bool fadingFix;
+  // Ghosting cleanup cadence, in pushes: every Nth frame is promoted from
+  // FAST_REFRESH to an absolute waveform. Mirrors SETTINGS.refreshFrequency;
+  // injected from src/ because PlatformIO libraries cannot see src/ headers.
+  int refreshCadence = 15;
+  // Shared ghosting-cleanup counter, one for the whole firmware: every FAST
+  // push ticks it and every Nth push is promoted to HALF. This is the ONLY
+  // cleanup cadence — the readers no longer keep a second per-page counter
+  // (that used to drift from this one whenever other screens pushed frames,
+  // producing irregular double flashes a few pages apart).
+  mutable uint8_t pagesSinceCleanup = 0;
+  // Guard for the promotion above: while armed (a countdown of pushes), each
+  // displayBuffer() keeps its FAST differential even if the counter is due.
+  // Activity switches arm it (Activity::onEnter / onExit) because the frames
+  // that follow a switch replace the whole screen — letting one of them become
+  // the Nth-push cleanup would flash the entire panel through an absolute
+  // waveform (~1.3 s) right at the moment the user is watching a transition.
+  // It covers the first few pushes, not just one: an activity switch reliably
+  // emits a 2nd render (async work such as cover loading or a socket callback
+  // settles right after the first), and promoting that one was still visible as
+  // a black/white scrub. Measured on device: with a 1-push guard, a menu round
+  // trip showed 1 of 5 entries promoted its 2nd frame to half (1355 ms).
+  // The cleanup counter is not reset, so the deferred cleanup simply moves to
+  // the next ordinary frame instead of being skipped. Written by the main task,
+  // read once by the render task: a uint8_t, worst case a benign stale read.
+  static constexpr uint8_t CADENCE_HOLDOFF_PUSHES = 3;
+  mutable uint8_t cadenceHoldoffPushes = 0;
+  uint8_t* frameBuffer = nullptr;
+  uint16_t panelWidth = HalDisplay::DISPLAY_WIDTH;
+  uint16_t panelHeight = HalDisplay::DISPLAY_HEIGHT;
+  uint16_t panelWidthBytes = HalDisplay::DISPLAY_WIDTH_BYTES;
+  uint32_t frameBufferSize = HalDisplay::BUFFER_SIZE;
+  std::vector<uint8_t*> bwBufferChunks;
+  std::map<int, EpdFontFamily> fontMap;
+  // Mutable because ensureSdCardFontReady() is const (called from layout code
+  // that holds a const GfxRenderer&) but triggers SD card reads and heap
+  // allocation inside the SdCardFont objects. Same pragmatic compromise as
+  // fontCacheManager_ below.
+  mutable std::map<int, SdCardFont*> sdCardFonts_;
+
+  // Mutable because drawText() is const but needs to delegate scan-mode
+  // recording to the (non-const) FontCacheManager. Same pragmatic compromise
+  // as before, concentrated in a single pointer instead of four fields.
+  mutable FontCacheManager* fontCacheManager_ = nullptr;
+
+  // Tiled grayscale strip target. When active, drawPixel()/clearScreen()
+  // operate on a caller-owned scratch holding one horizontal band of physical
+  // rows [_stripY0, _stripY0 + _stripRows) (panelWidthBytes wide) instead of
+  // the shared framebuffer, clipping pixels outside the band. Lets grayscale
+  // planes render band-by-band straight to the controller without destroying
+  // the BW framebuffer (no storeBwBuffer). Mutable because the render path is
+  // const. See beginStripTarget()/endStripTarget().
+  mutable uint8_t* _stripBuf = nullptr;
+  mutable int _stripY0 = 0;
+  mutable int _stripRows = 0;
+  mutable bool _stripActive = false;
+
+  void renderChar(const EpdFontFamily& fontFamily, uint32_t cp, int* x, int* y, bool pixelState,
+                  EpdFontFamily::Style style) const;
+  void freeBwBufferChunks();
+  template <Color color>
+  void drawPixelDither(int x, int y) const;
+  template <Color color>
+  void fillArc(int maxRadius, int cx, int cy, int xDir, int yDir) const;
+  // Byte-aligned, orientation-specialized rectangle fill. Rotates the rect's
+  // two opposing corners into physical-framebuffer space once, then walks each
+  // physical row with head-mask / middle memset / tail-mask byte writes — no
+  // per-pixel rotation, no per-pixel RMW.
+  template <Color color>
+  void fillRectImpl(int x, int y, int width, int height) const;
+
+ public:
+  explicit GfxRenderer(HalDisplay& halDisplay)
+      : display(halDisplay), renderMode(BW), orientation(Portrait), fadingFix(false) {}
+  ~GfxRenderer() { freeBwBufferChunks(); }
+
+  static constexpr int VIEWABLE_MARGIN_TOP = 9;
+  static constexpr int VIEWABLE_MARGIN_RIGHT = 3;
+  static constexpr int VIEWABLE_MARGIN_BOTTOM = 3;
+  static constexpr int VIEWABLE_MARGIN_LEFT = 3;
+
+  // Setup
+  void begin();  // must be called right after display.begin()
+  void insertFont(int fontId, EpdFontFamily font);
+  // Clears both the flash-font map and any SD-font registration for fontId.
+  // Coupled to avoid dangling SdCardFont* in sdCardFonts_ when callers free
+  // the underlying SdCardFont and forget the SD-side unregister.
+  void removeFont(int fontId) {
+    fontMap.erase(fontId);
+    sdCardFonts_.erase(fontId);
+  }
+  void setFontCacheManager(FontCacheManager* m) { fontCacheManager_ = m; }
+  FontCacheManager* getFontCacheManager() const { return fontCacheManager_; }
+  bool isFontCacheScanning() const;
+  const std::map<int, EpdFontFamily>& getFontMap() const { return fontMap; }
+  void registerSdCardFont(int fontId, SdCardFont* font) { sdCardFonts_[fontId] = font; }
+  void unregisterSdCardFont(int fontId) { removeFont(fontId); }
+  void clearSdCardFonts() { sdCardFonts_.clear(); }
+  const std::map<int, SdCardFont*>& getSdCardFonts() const { return sdCardFonts_; }
+  bool isSdCardFont(int fontId) const { return sdCardFonts_.count(fontId) > 0; }
+  // Ensure SD card font glyph data is loaded for the given text. Called from layout code
+  // (which holds a const GfxRenderer&) before measuring word widths. Safe to call on non-SD fonts (no-op).
+  // styleMask: bitmask of styles to prepare (bit 0=regular, 1=bold, 2=italic, 3=bold-italic).
+  void ensureSdCardFontReady(int fontId, const char* utf8Text, uint8_t styleMask = 0x0F) const;
+  void ensureSdCardFontReady(int fontId, const std::vector<std::string>& words, bool includeHyphen,
+                             uint8_t styleMask = 0x0F) const;
+  // Persist the SD font's advance table to its SD cache file (dirty + throttled
+  // internally) so a later load() starts warm. No-op for non-SD fonts.
+  void persistSdCardFontAdvances(int fontId) const;
+
+  // Orientation control (affects logical width/height and coordinate transforms)
+  void setOrientation(const Orientation o) { orientation = o; }
+  Orientation getOrientation() const { return orientation; }
+
+  // Fading fix control
+  void setFadingFix(const bool enabled) { fadingFix = enabled; }
+  void setRefreshCadence(const int pushes) { refreshCadence = pushes; }
+  void holdOffCadenceForNextPush() { cadenceHoldoffPushes = CADENCE_HOLDOFF_PUSHES; }
+  // Park the shared cleanup counter one short of the threshold so the next
+  // FAST push promotes to HALF (the transition hold-off still wins, moving it
+  // to the push after). Used by the readers after an image page: the gray
+  // residue the grayscale pass leaves in the image region cannot be cleared
+  // by a differential refresh.
+  void requestGhostCleanup() const;
+
+  // Screen ops
+  int getScreenWidth() const;
+  int getScreenHeight() const;
+  void displayBuffer(HalDisplay::RefreshMode refreshMode = HalDisplay::FAST_REFRESH) const;
+  // Strong absolute clean using only the fast waveform (black pulse, then the
+  // framebuffer). Used by the ghost-cleanup cadence and the sleep screen.
+  void displayBufferBlackPulseClean() const;
+  // Windowed update: push only the logical rect (orientation-aware; widened to
+  // the panel's 8-pixel RAM columns). Does NOT advance the ghost-cleanup
+  // cadence — the rest of the panel is untouched. Returns false when the rect
+  // is empty or fully off-panel, in which case nothing is displayed.
+  bool displayWindow(int logicalX, int logicalY, int logicalW, int logicalH,
+                     HalDisplay::RefreshMode refreshMode = HalDisplay::FAST_REFRESH) const;
+  void invertScreen() const;
+  void clearScreen(uint8_t color = 0xFF) const;
+  void getOrientedViewableTRBL(int* outTop, int* outRight, int* outBottom, int* outLeft) const;
+
+  // Tiled grayscale strip target. While active, drawPixel() and clearScreen()
+  // operate on `scratch` (panelWidthBytes * stripRows bytes, holding physical
+  // rows [stripY0, stripY0 + stripRows)) instead of the framebuffer; pixels
+  // whose physical row falls outside the band are clipped. The clip is applied
+  // after the orientation rotate, so it is orientation-agnostic. Used to render
+  // grayscale planes band-by-band without a full second buffer.
+  void beginStripTarget(uint8_t* scratch, int stripY0, int stripRows) const;
+  void endStripTarget() const;
+
+  // Band culling for tiled grayscale. Takes a glyph bounding box in logical
+  // screen coords and returns false only when a strip is active AND the box's
+  // physical y-extent lies entirely outside the active band, letting callers
+  // skip an expensive bitmap decode. Returns true when no strip is active.
+  // Corners are rotated to physical, so it is orientation-aware.
+  bool glyphIntersectsStrip(int x0, int y0, int x1, int y1) const;
+
+  // Active pixel-write target for raw writers (DirectPixelWriter) that bypass
+  // drawPixel for speed. When a strip target is active these return the band
+  // scratch plus its physical-row origin and extent; otherwise the full
+  // framebuffer ([0, panelHeight)). Writers subtract the origin and clip to the
+  // extent, so they honor tiled-grayscale banding without per-pixel method calls.
+  uint8_t* getWriteTarget() const { return _stripActive ? _stripBuf : frameBuffer; }
+  int getWriteOriginY() const { return _stripActive ? _stripY0 : 0; }
+  int getWriteRows() const { return _stripActive ? _stripRows : panelHeight; }
+
+  // Drawing
+  void drawPixel(int x, int y, bool state = true) const;
+  void drawLine(int x1, int y1, int x2, int y2, bool state = true) const;
+  void drawLine(int x1, int y1, int x2, int y2, int lineWidth, bool state) const;
+  void drawArc(int maxRadius, int cx, int cy, int xDir, int yDir, int lineWidth, bool state) const;
+  void drawRect(int x, int y, int width, int height, bool state = true) const;
+  void drawRect(int x, int y, int width, int height, int lineWidth, bool state) const;
+  void drawRoundedRect(int x, int y, int width, int height, int lineWidth, int cornerRadius, bool state) const;
+  void drawRoundedRect(int x, int y, int width, int height, int lineWidth, int cornerRadius, bool roundTopLeft,
+                       bool roundTopRight, bool roundBottomLeft, bool roundBottomRight, bool state) const;
+  void maskRoundedRectOutsideCorners(int x, int y, int width, int height, int radius, Color color = Color::White) const;
+  void fillRect(int x, int y, int width, int height, bool state = true) const;
+  void fillRectDither(int x, int y, int width, int height, Color color) const;
+  void fillRoundedRect(int x, int y, int width, int height, int cornerRadius, Color color) const;
+  void fillRoundedRect(int x, int y, int width, int height, int cornerRadius, bool roundTopLeft, bool roundTopRight,
+                       bool roundBottomLeft, bool roundBottomRight, Color color) const;
+  void drawImage(const uint8_t bitmap[], int x, int y, int width, int height) const;
+  void drawIcon(const uint8_t bitmap[], int x, int y, int width, int height) const;
+  void drawBitmap(const Bitmap& bitmap, int x, int y, int maxWidth, int maxHeight, float cropX = 0,
+                  float cropY = 0) const;
+  void drawBitmap1Bit(const Bitmap& bitmap, int x, int y, int maxWidth, int maxHeight) const;
+  void fillPolygon(const int* xPoints, const int* yPoints, int numPoints, bool state = true) const;
+
+  // Text
+  int getTextWidth(int fontId, const char* text, EpdFontFamily::Style style = EpdFontFamily::REGULAR,
+                   BidiUtils::BidiBaseDir baseDir = BidiUtils::BidiBaseDir::AUTO) const;
+  void drawCenteredText(int fontId, int y, const char* text, bool black = true,
+                        EpdFontFamily::Style style = EpdFontFamily::REGULAR,
+                        BidiUtils::BidiBaseDir baseDir = BidiUtils::BidiBaseDir::AUTO) const;
+  void drawText(int fontId, int x, int y, const char* text, bool black = true,
+                EpdFontFamily::Style style = EpdFontFamily::REGULAR,
+                BidiUtils::BidiBaseDir baseDir = BidiUtils::BidiBaseDir::AUTO) const;
+  int getSpaceWidth(int fontId, EpdFontFamily::Style style = EpdFontFamily::REGULAR) const;
+  /// Returns the total inter-word advance: fp4::toPixel(spaceAdvance + kern(leftCp,' ') + kern(' ',rightCp)).
+  /// Using a single snap avoids the +/-1 px rounding error that arises when space advance and kern are
+  /// snapped separately and then added as integers.
+  int getSpaceAdvance(int fontId, uint32_t leftCp, uint32_t rightCp, EpdFontFamily::Style style) const;
+  /// Returns the kerning adjustment between two adjacent codepoints.
+  int getKerning(int fontId, uint32_t leftCp, uint32_t rightCp, EpdFontFamily::Style style) const;
+  int getTextAdvanceX(int fontId, const char* text, EpdFontFamily::Style style) const;
+  int getFontAscenderSize(int fontId) const;
+  int getLineHeight(int fontId) const;
+  std::string truncatedText(int fontId, const char* text, int maxWidth,
+                            EpdFontFamily::Style style = EpdFontFamily::REGULAR) const;
+  /// Word-wrap \p text into at most \p maxLines lines, each no wider than
+  /// \p maxWidth pixels. '\n' forces a line break. A token with no space to
+  /// wrap at (CJK prose, long paths) is broken at a character boundary rather
+  /// than dropped; only the last allowed line carries an ellipsis (U+2026).
+  std::vector<std::string> wrappedText(int fontId, const char* text, int maxWidth, int maxLines,
+                                       EpdFontFamily::Style style = EpdFontFamily::REGULAR) const;
+  /// Byte length of the longest UTF-8-aligned prefix of \p text no wider than
+  /// \p maxWidth. 0 when not even the first code point fits. Binary search —
+  /// a linear grow-and-measure scan is O(lines²) glyph lookups on a page of
+  /// CJK text, which is visible as a multi-hundred-ms render stall.
+  size_t fitPrefixLen(int fontId, const std::string& text, int maxWidth,
+                      EpdFontFamily::Style style = EpdFontFamily::REGULAR) const;
+
+  // Helper for drawing rotated text (90 degrees clockwise, for side buttons)
+  void drawTextRotated90CW(int fontId, int x, int y, const char* text, bool black = true,
+                           EpdFontFamily::Style style = EpdFontFamily::REGULAR) const;
+  int getTextHeight(int fontId) const;
+
+  // Grayscale functions
+  void setRenderMode(const RenderMode mode) { this->renderMode = mode; }
+  RenderMode getRenderMode() const { return renderMode; }
+  // Grayscale preconditioning settle pass (no-op on X4). The rect overload
+  // takes the gray region in LOGICAL screen coordinates and rotates it to the
+  // panel; the no-arg overload settles the full frame. Call after the BW base
+  // frame is displayed and before the grayscale planes are written.
+  void preconditionGrayscale() const;
+  void preconditionGrayscale(int x, int y, int w, int h) const;
+  // Display the framebuffer as the base frame for a grayscale overlay that
+  // follows (X3: OEM differential base waveform; others: plain display with
+  // `fallback`).
+  void displayGrayscaleBase(HalDisplay::RefreshMode fallback = HalDisplay::HALF_REFRESH) const;
+  void copyGrayscaleLsbBuffers() const;
+  void copyGrayscaleMsbBuffers() const;
+  void displayGrayBuffer() const;
+
+  // Tiled grayscale (X4): stream one band of a plane straight to controller RAM
+  // from `scratch` (panelWidthBytes * numRows, physical rows [yStart, yStart+
+  // numRows)), bypassing the framebuffer. supportsStripGrayscale() gates use.
+  void writeGrayscalePlaneStrip(bool lsbPlane, const uint8_t* scratch, int yStart, int numRows) const;
+  bool supportsStripGrayscale() const;
+  bool storeBwBuffer();    // Returns true if buffer was stored successfully
+  void restoreBwBuffer();  // Restore and free the stored buffer
+  void cleanupGrayscaleWithFrameBuffer() const;
+
+  // Font helpers
+  const uint8_t* getGlyphBitmap(const EpdFontData* fontData, const EpdGlyph* glyph) const;
+
+  // Returns the correct 2-bit-ness for decoding this glyph's bitmap. Normally
+  // fontData->is2Bit, but when the glyph was back-filled by a CJK fallback
+  // SdCardFont (see SdCardFont::wireAsFallback) its depth may differ from the
+  // host UI font's, so we defer to the fallback font's depth for overflow glyphs.
+  bool getGlyphIs2Bit(const EpdFontData* fontData, const EpdGlyph* glyph) const;
+
+  // Low level functions
+  uint8_t* getFrameBuffer() const;
+  size_t getBufferSize() const;
+  uint16_t getDisplayWidth() const { return panelWidth; }
+  uint16_t getDisplayHeight() const { return panelHeight; }
+  uint16_t getDisplayWidthBytes() const { return panelWidthBytes; }
+
+  // Region cache: take a logical (orientation-aware) rect, hit the framebuffer
+  // bytes that the rect can have touched, and pump them in or out of a caller-
+  // supplied buffer. Used by HomeActivity to snapshot just the cover tile
+  // (~16 KB in Portrait) instead of cloning the entire 48 KB framebuffer.
+  //
+  // getRegionByteSize: required buffer length for the rect at current orientation.
+  // copyRegionToBuffer / copyBufferToRegion: false if `bufSize` is smaller than that.
+  size_t getRegionByteSize(int logicalX, int logicalY, int logicalW, int logicalH) const;
+  bool copyRegionToBuffer(int logicalX, int logicalY, int logicalW, int logicalH, uint8_t* buf, size_t bufSize) const;
+  bool copyBufferToRegion(int logicalX, int logicalY, int logicalW, int logicalH, const uint8_t* buf,
+                          size_t bufSize) const;
+};

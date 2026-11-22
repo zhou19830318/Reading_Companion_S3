@@ -1,0 +1,75 @@
+#pragma once
+#include <EpdFontFamily.h>
+#include <HalStorage.h>
+
+#include <memory>
+#include <string>
+#include <vector>
+
+#include "Block.h"
+#include "BlockStyle.h"
+#include "Epub/PassageRef.h"
+
+// Represents a line of text on a page
+class TextBlock final : public Block {
+ private:
+  std::vector<std::string> words;
+  std::vector<int16_t> wordXpos;
+  std::vector<EpdFontFamily::Style> wordStyles;
+  // Per-word focus boundary: N > 0 means the first N bytes of words[i] are rendered bold,
+  // the remainder in the base style. 0 means no split (whole word uses wordStyles[i]).
+  // N encodes the bold PREFIX length only — bounded to 9 codepoints (≤36 UTF-8 bytes) by
+  // FOCUS_READING_PERCENT's 1..9 clamp in ParsedText::addWord, so it always fits in uint8_t.
+  // Vector is empty when no focus splits exist anywhere in the block (zero per-word RAM cost
+  // when focus reading is disabled, or on lines that happen to contain no splittable words).
+  std::vector<uint8_t> wordFocusBoundary;
+  // Pre-computed pixel offset from word start to the regular suffix, stored when boundary > 0.
+  // Eliminates getTextAdvanceX from the render path. 0 when boundary == 0.
+  // Empty in lockstep with wordFocusBoundary.
+  std::vector<uint16_t> wordFocusSuffixX;
+  BlockStyle blockStyle;
+  // Citation anchor for this rendered line. kind/index identify the source
+  // <p>/<li> in the spine document (see PassageRef.h); charStart/charEnd are
+  // UTF-8 byte offsets into that passage's normalized text. None for layout
+  // text that has no passage (cover pages, loose <div> runs).
+  EpubPassage::Ref passage;
+  uint32_t passageCharStart = 0;
+  uint32_t passageCharEnd = 0;
+
+ public:
+  explicit TextBlock(std::vector<std::string> words, std::vector<int16_t> word_xpos,
+                     std::vector<EpdFontFamily::Style> word_styles, std::vector<uint8_t> focus_boundary,
+                     std::vector<uint16_t> focus_suffix_x, const BlockStyle& blockStyle = BlockStyle())
+      : words(std::move(words)),
+        wordXpos(std::move(word_xpos)),
+        wordStyles(std::move(word_styles)),
+        wordFocusBoundary(std::move(focus_boundary)),
+        wordFocusSuffixX(std::move(focus_suffix_x)),
+        blockStyle(blockStyle) {}
+  ~TextBlock() override = default;
+  void setBlockStyle(const BlockStyle& blockStyle) { this->blockStyle = blockStyle; }
+  const BlockStyle& getBlockStyle() const { return blockStyle; }
+  const std::vector<std::string>& getWords() const { return words; }
+  // Layout results, for readers that need per-word positions (the dictionary
+  // picker's per-character cursor): render() places word i at
+  // (wordXpos[i], 0) relative to the block origin with wordStyles[i].
+  const std::vector<int16_t>& getWordXpos() const { return wordXpos; }
+  const std::vector<EpdFontFamily::Style>& getWordStyles() const { return wordStyles; }
+  // Citation anchor for this line. charStart/charEnd are UTF-8 byte offsets
+  // into the passage's normalized text (docs/ai-native/api-v1.md).
+  void setPassage(const EpubPassage::Ref ref, const uint32_t charStart, const uint32_t charEnd) {
+    passage = ref;
+    passageCharStart = charStart;
+    passageCharEnd = charEnd;
+  }
+  EpubPassage::Ref getPassage() const { return passage; }
+  uint32_t getPassageCharStart() const { return passageCharStart; }
+  uint32_t getPassageCharEnd() const { return passageCharEnd; }
+  bool isEmpty() override { return words.empty(); }
+  size_t wordCount() const { return words.size(); }
+  // given a renderer works out where to break the words into lines
+  void render(const GfxRenderer& renderer, int fontId, int x, int y) const;
+  BlockType getType() override { return TEXT_BLOCK; }
+  bool serialize(HalFile& file) const;
+  static std::unique_ptr<TextBlock> deserialize(HalFile& file);
+};

@@ -1,0 +1,879 @@
+{
+  "generated_by": "generate.py",
+  "rule": "docs/ai-native/api-v1.md",
+  "books": [
+    {
+      "file": "zh_prose.epub",
+      "sha256": "9e08598fd2076fdb0fcad2f8bd3f4eed56698850088fb1d84531b3aa210fbe0c",
+      "book_id": "9e08598fd2076fdb",
+      "title": "山间书店",
+      "author": "示例作者",
+      "language": "zh",
+      "chapters": [
+        {
+          "spine_index": 0,
+          "title": "第一章 山间"
+        },
+        {
+          "spine_index": 1,
+          "title": "第二章 灯下"
+        }
+      ],
+      "passage_count": 20,
+      "passages": [
+        {
+          "passage_id": "9e08598fd2076fdb:0:p0",
+          "spine_index": 0,
+          "kind": "p",
+          "block_index": 0,
+          "text": "山间的书店有一盏灯。",
+          "seq": 0
+        },
+        {
+          "passage_id": "9e08598fd2076fdb:0:p1",
+          "spine_index": 0,
+          "kind": "p",
+          "block_index": 1,
+          "text": "灯下是一张旧木桌，桌面被许多人的手磨得发亮。",
+          "seq": 1
+        },
+        {
+          "passage_id": "9e08598fd2076fdb:0:p2",
+          "spine_index": 0,
+          "kind": "p",
+          "block_index": 2,
+          "text": "店主把新到的书一本本拆开，纸页的味道慢慢铺满屋子。",
+          "seq": 2
+        },
+        {
+          "passage_id": "9e08598fd2076fdb:0:p3",
+          "spine_index": 0,
+          "kind": "p",
+          "block_index": 3,
+          "text": "窗外的雨落在石阶上，声音很轻。",
+          "seq": 3
+        },
+        {
+          "passage_id": "9e08598fd2076fdb:0:p4",
+          "spine_index": 0,
+          "kind": "p",
+          "block_index": 4,
+          "text": "他说，读书不是为了赶路，是为了在某个句子旁边停下来。",
+          "seq": 4
+        },
+        {
+          "passage_id": "9e08598fd2076fdb:0:p5",
+          "spine_index": 0,
+          "kind": "p",
+          "block_index": 5,
+          "text": "我坐在靠窗的位置，翻开一本没有读完的旧书。",
+          "seq": 5
+        },
+        {
+          "passage_id": "9e08598fd2076fdb:0:p6",
+          "spine_index": 0,
+          "kind": "p",
+          "block_index": 6,
+          "text": "书里夹着一片干枯的叶子，叶脉还很清楚。",
+          "seq": 6
+        },
+        {
+          "passage_id": "9e08598fd2076fdb:0:p7",
+          "spine_index": 0,
+          "kind": "p",
+          "block_index": 7,
+          "text": "那一刻，时间像被折进了纸页。",
+          "seq": 7
+        },
+        {
+          "passage_id": "9e08598fd2076fdb:0:p8",
+          "spine_index": 0,
+          "kind": "p",
+          "block_index": 8,
+          "text": "店主给我倒了一杯热茶，没有说话。",
+          "seq": 8
+        },
+        {
+          "passage_id": "9e08598fd2076fdb:0:p9",
+          "spine_index": 0,
+          "kind": "p",
+          "block_index": 9,
+          "text": "我们各自读着，屋子里只剩下翻页的声音。",
+          "seq": 9
+        },
+        {
+          "passage_id": "9e08598fd2076fdb:1:p0",
+          "spine_index": 1,
+          "kind": "p",
+          "block_index": 0,
+          "text": "傍晚的时候，灯变得更亮了。",
+          "seq": 0
+        },
+        {
+          "passage_id": "9e08598fd2076fdb:1:p1",
+          "spine_index": 1,
+          "kind": "p",
+          "block_index": 1,
+          "text": "一个孩子推门进来，问有没有讲星星的书。",
+          "seq": 1
+        },
+        {
+          "passage_id": "9e08598fd2076fdb:1:p2",
+          "spine_index": 1,
+          "kind": "p",
+          "block_index": 2,
+          "text": "店主从最高的书架上取下一本，封面已经褪色。",
+          "seq": 2
+        },
+        {
+          "passage_id": "9e08598fd2076fdb:1:p3",
+          "spine_index": 1,
+          "kind": "p",
+          "block_index": 3,
+          "text": "孩子坐在门槛上，一页一页地看。",
+          "seq": 3
+        },
+        {
+          "passage_id": "9e08598fd2076fdb:1:p4",
+          "spine_index": 1,
+          "kind": "p",
+          "block_index": 4,
+          "text": "他读到一半，抬头问：星星为什么会发光？",
+          "seq": 4
+        },
+        {
+          "passage_id": "9e08598fd2076fdb:1:p5",
+          "spine_index": 1,
+          "kind": "p",
+          "block_index": 5,
+          "text": "店主说，也许是因为它们也在读彼此。",
+          "seq": 5
+        },
+        {
+          "passage_id": "9e08598fd2076fdb:1:p6",
+          "spine_index": 1,
+          "kind": "p",
+          "block_index": 6,
+          "text": "孩子笑了，把这个答案认真地记在本子上。",
+          "seq": 6
+        },
+        {
+          "passage_id": "9e08598fd2076fdb:1:p7",
+          "spine_index": 1,
+          "kind": "p",
+          "block_index": 7,
+          "text": "雨停了，街道上有了脚步声。",
+          "seq": 7
+        },
+        {
+          "passage_id": "9e08598fd2076fdb:1:p8",
+          "spine_index": 1,
+          "kind": "p",
+          "block_index": 8,
+          "text": "我把旧书合上，叶子仍夹在原处。",
+          "seq": 8
+        },
+        {
+          "passage_id": "9e08598fd2076fdb:1:p9",
+          "spine_index": 1,
+          "kind": "p",
+          "block_index": 9,
+          "text": "离开时，那盏灯还亮着。",
+          "seq": 9
+        }
+      ]
+    },
+    {
+      "file": "zh_mixed.epub",
+      "sha256": "a70843b25e4d188964e18f1364b4ae3b2ed01d55aefa798cc6c57ae737233af7",
+      "book_id": "a70843b25e4d1889",
+      "title": "河边的信",
+      "author": "示例作者",
+      "language": "zh",
+      "chapters": [
+        {
+          "spine_index": 0,
+          "title": "第一章 河边"
+        },
+        {
+          "spine_index": 1,
+          "title": "第二章 回信"
+        }
+      ],
+      "passage_count": 21,
+      "passages": [
+        {
+          "passage_id": "a70843b25e4d1889:0:p0",
+          "spine_index": 0,
+          "kind": "p",
+          "block_index": 0,
+          "text": "河边的风把信纸吹得发响。",
+          "seq": 0
+        },
+        {
+          "passage_id": "a70843b25e4d1889:0:p1",
+          "spine_index": 0,
+          "kind": "p",
+          "block_index": 1,
+          "text": "她把信折成一只小船，放进水里。",
+          "seq": 1
+        },
+        {
+          "passage_id": "a70843b25e4d1889:0:l0",
+          "spine_index": 0,
+          "kind": "l",
+          "block_index": 0,
+          "text": "第一件事：不要回头。",
+          "seq": 2
+        },
+        {
+          "passage_id": "a70843b25e4d1889:0:l1",
+          "spine_index": 0,
+          "kind": "l",
+          "block_index": 1,
+          "text": "第二件事：记住河的方向。",
+          "seq": 3
+        },
+        {
+          "passage_id": "a70843b25e4d1889:0:p2",
+          "spine_index": 0,
+          "kind": "p",
+          "block_index": 2,
+          "text": "小船顺流而下，穿过桥洞。",
+          "seq": 4
+        },
+        {
+          "passage_id": "a70843b25e4d1889:0:p3",
+          "spine_index": 0,
+          "kind": "p",
+          "block_index": 3,
+          "text": "桥上的人没有看见它。",
+          "seq": 5
+        },
+        {
+          "passage_id": "a70843b25e4d1889:0:p4",
+          "spine_index": 0,
+          "kind": "p",
+          "block_index": 4,
+          "text": "她想起小时候，祖母也这样放过一只船。",
+          "seq": 6
+        },
+        {
+          "passage_id": "a70843b25e4d1889:0:p5",
+          "spine_index": 0,
+          "kind": "p",
+          "block_index": 5,
+          "text": "祖母说，写下来的话会找到路。",
+          "seq": 7
+        },
+        {
+          "passage_id": "a70843b25e4d1889:0:p6",
+          "spine_index": 0,
+          "kind": "p",
+          "block_index": 6,
+          "text": "于是她把想说的话都写了下来。",
+          "seq": 8
+        },
+        {
+          "passage_id": "a70843b25e4d1889:0:p7",
+          "spine_index": 0,
+          "kind": "p",
+          "block_index": 7,
+          "text": "包括那些没有寄出的部分。",
+          "seq": 9
+        },
+        {
+          "passage_id": "a70843b25e4d1889:1:p0",
+          "spine_index": 1,
+          "kind": "p",
+          "block_index": 0,
+          "text": "三天后，她在门口捡到一只湿透的纸船。",
+          "seq": 0
+        },
+        {
+          "passage_id": "a70843b25e4d1889:1:p1",
+          "spine_index": 1,
+          "kind": "p",
+          "block_index": 1,
+          "text": "船上多了一行字：我收到了。",
+          "seq": 1
+        },
+        {
+          "passage_id": "a70843b25e4d1889:1:l0",
+          "spine_index": 1,
+          "kind": "l",
+          "block_index": 0,
+          "text": "字迹很轻，像是怕惊动什么。",
+          "seq": 2
+        },
+        {
+          "passage_id": "a70843b25e4d1889:1:l1",
+          "spine_index": 1,
+          "kind": "l",
+          "block_index": 1,
+          "text": "她把纸船放在窗台上晾干。",
+          "seq": 3
+        },
+        {
+          "passage_id": "a70843b25e4d1889:1:l2",
+          "spine_index": 1,
+          "kind": "l",
+          "block_index": 2,
+          "text": "她想，也会抵达。",
+          "seq": 4
+        },
+        {
+          "passage_id": "a70843b25e4d1889:1:p2",
+          "spine_index": 1,
+          "kind": "p",
+          "block_index": 2,
+          "text": "有些回信不需要地址",
+          "seq": 5
+        },
+        {
+          "passage_id": "a70843b25e4d1889:1:p3",
+          "spine_index": 1,
+          "kind": "p",
+          "block_index": 3,
+          "text": "窗外的河仍然向东流。",
+          "seq": 6
+        },
+        {
+          "passage_id": "a70843b25e4d1889:1:p4",
+          "spine_index": 1,
+          "kind": "p",
+          "block_index": 4,
+          "text": "她坐下来，开始写第二封信。",
+          "seq": 7
+        },
+        {
+          "passage_id": "a70843b25e4d1889:1:p5",
+          "spine_index": 1,
+          "kind": "p",
+          "block_index": 5,
+          "text": "这一次，她没有折成船。",
+          "seq": 8
+        },
+        {
+          "passage_id": "a70843b25e4d1889:1:p6",
+          "spine_index": 1,
+          "kind": "p",
+          "block_index": 6,
+          "text": "她把信夹进了一本书里。",
+          "seq": 9
+        },
+        {
+          "passage_id": "a70843b25e4d1889:1:p7",
+          "spine_index": 1,
+          "kind": "p",
+          "block_index": 7,
+          "text": "等下一个读到的人发现。",
+          "seq": 10
+        }
+      ]
+    },
+    {
+      "file": "en_prose.epub",
+      "sha256": "e62b323ad799d2c2f32b01337566b68a916e29e3561afc218e923d3ebc8fc643",
+      "book_id": "e62b323ad799d2c2",
+      "title": "The Quiet Library",
+      "author": "Example Author",
+      "language": "en",
+      "chapters": [
+        {
+          "spine_index": 0,
+          "title": "Chapter One: The Door"
+        },
+        {
+          "spine_index": 1,
+          "title": "Chapter Two: The Margin"
+        }
+      ],
+      "passage_count": 20,
+      "passages": [
+        {
+          "passage_id": "e62b323ad799d2c2:0:p0",
+          "spine_index": 0,
+          "kind": "p",
+          "block_index": 0,
+          "text": "The library opened at nine, but the door was already warm.",
+          "seq": 0
+        },
+        {
+          "passage_id": "e62b323ad799d2c2:0:p1",
+          "spine_index": 0,
+          "kind": "p",
+          "block_index": 1,
+          "text": "Mara had walked past it for years without looking in.",
+          "seq": 1
+        },
+        {
+          "passage_id": "e62b323ad799d2c2:0:p2",
+          "spine_index": 0,
+          "kind": "p",
+          "block_index": 2,
+          "text": "Today she stopped, because the rain had started.",
+          "seq": 2
+        },
+        {
+          "passage_id": "e62b323ad799d2c2:0:p3",
+          "spine_index": 0,
+          "kind": "p",
+          "block_index": 3,
+          "text": "Inside, a clock ticked more slowly than the one at home.",
+          "seq": 3
+        },
+        {
+          "passage_id": "e62b323ad799d2c2:0:p4",
+          "spine_index": 0,
+          "kind": "p",
+          "block_index": 4,
+          "text": "A librarian looked up and nodded, as if expecting her.",
+          "seq": 4
+        },
+        {
+          "passage_id": "e62b323ad799d2c2:0:p5",
+          "spine_index": 0,
+          "kind": "p",
+          "block_index": 5,
+          "text": "The shelves were tall enough to make the room feel like a forest.",
+          "seq": 5
+        },
+        {
+          "passage_id": "e62b323ad799d2c2:0:p6",
+          "spine_index": 0,
+          "kind": "p",
+          "block_index": 6,
+          "text": "She chose a book with acracked blue spine and sat down.",
+          "seq": 6
+        },
+        {
+          "passage_id": "e62b323ad799d2c2:0:p7",
+          "spine_index": 0,
+          "kind": "p",
+          "block_index": 7,
+          "text": "The first page smelled of dust and oranges.",
+          "seq": 7
+        },
+        {
+          "passage_id": "e62b323ad799d2c2:0:p8",
+          "spine_index": 0,
+          "kind": "p",
+          "block_index": 8,
+          "text": "She read until the rain became a background sound.",
+          "seq": 8
+        },
+        {
+          "passage_id": "e62b323ad799d2c2:0:p9",
+          "spine_index": 0,
+          "kind": "p",
+          "block_index": 9,
+          "text": "When she looked up, the clock had moved only a little.",
+          "seq": 9
+        },
+        {
+          "passage_id": "e62b323ad799d2c2:1:p0",
+          "spine_index": 1,
+          "kind": "p",
+          "block_index": 0,
+          "text": "In the margin of page twelve, someone had written a note.",
+          "seq": 0
+        },
+        {
+          "passage_id": "e62b323ad799d2c2:1:p1",
+          "spine_index": 1,
+          "kind": "p",
+          "block_index": 1,
+          "text": "It said: this is where the story begins for me.",
+          "seq": 1
+        },
+        {
+          "passage_id": "e62b323ad799d2c2:1:p2",
+          "spine_index": 1,
+          "kind": "p",
+          "block_index": 2,
+          "text": "Mara turned the page and found another note.",
+          "seq": 2
+        },
+        {
+          "passage_id": "e62b323ad799d2c2:1:p3",
+          "spine_index": 1,
+          "kind": "p",
+          "block_index": 3,
+          "text": "Each one was short, like a hand reaching across time.",
+          "seq": 3
+        },
+        {
+          "passage_id": "e62b323ad799d2c2:1:p4",
+          "spine_index": 1,
+          "kind": "p",
+          "block_index": 4,
+          "text": "She borrowed a pencil and added her own sentence.",
+          "seq": 4
+        },
+        {
+          "passage_id": "e62b323ad799d2c2:1:p5",
+          "spine_index": 1,
+          "kind": "p",
+          "block_index": 5,
+          "text": "The librarian pretended not to notice.",
+          "seq": 5
+        },
+        {
+          "passage_id": "e62b323ad799d2c2:1:p6",
+          "spine_index": 1,
+          "kind": "p",
+          "block_index": 6,
+          "text": "At closing time, Mara returned the book to the shelf.",
+          "seq": 6
+        },
+        {
+          "passage_id": "e62b323ad799d2c2:1:p7",
+          "spine_index": 1,
+          "kind": "p",
+          "block_index": 7,
+          "text": "She left her note inside, for the next reader.",
+          "seq": 7
+        },
+        {
+          "passage_id": "e62b323ad799d2c2:1:p8",
+          "spine_index": 1,
+          "kind": "p",
+          "block_index": 8,
+          "text": "The rain had stopped, but the street shone.",
+          "seq": 8
+        },
+        {
+          "passage_id": "e62b323ad799d2c2:1:p9",
+          "spine_index": 1,
+          "kind": "p",
+          "block_index": 9,
+          "text": "She walked home slowly, carrying the quiet with her.",
+          "seq": 9
+        }
+      ]
+    },
+    {
+      "file": "en_dialogue.epub",
+      "sha256": "ba8a8e1c6e9c553fb9fe477164ec819d372987872db828a6e24f9d611f591564",
+      "book_id": "ba8a8e1c6e9c553f",
+      "title": "A Conversation About Maps",
+      "author": "Example Author",
+      "language": "en",
+      "chapters": [
+        {
+          "spine_index": 0,
+          "title": "Chapter One: The Table"
+        },
+        {
+          "spine_index": 1,
+          "title": "Chapter Two: The Walk"
+        }
+      ],
+      "passage_count": 20,
+      "passages": [
+        {
+          "passage_id": "ba8a8e1c6e9c553f:0:p0",
+          "spine_index": 0,
+          "kind": "p",
+          "block_index": 0,
+          "text": "\"You are late,\" said Ivo, without looking up.",
+          "seq": 0
+        },
+        {
+          "passage_id": "ba8a8e1c6e9c553f:0:p1",
+          "spine_index": 0,
+          "kind": "p",
+          "block_index": 1,
+          "text": "\"The tram stopped,\" said Lena. \"Twice.\"",
+          "seq": 1
+        },
+        {
+          "passage_id": "ba8a8e1c6e9c553f:0:p2",
+          "spine_index": 0,
+          "kind": "p",
+          "block_index": 2,
+          "text": "He moved a cup so she could put down her map.",
+          "seq": 2
+        },
+        {
+          "passage_id": "ba8a8e1c6e9c553f:0:l0",
+          "spine_index": 0,
+          "kind": "l",
+          "block_index": 0,
+          "text": "The map was older than the city.",
+          "seq": 3
+        },
+        {
+          "passage_id": "ba8a8e1c6e9c553f:0:l1",
+          "spine_index": 0,
+          "kind": "l",
+          "block_index": 1,
+          "text": "It showed a river where the road now ran.",
+          "seq": 4
+        },
+        {
+          "passage_id": "ba8a8e1c6e9c553f:0:p3",
+          "spine_index": 0,
+          "kind": "p",
+          "block_index": 3,
+          "text": "\"Why do you keep it?\" she asked.",
+          "seq": 5
+        },
+        {
+          "passage_id": "ba8a8e1c6e9c553f:0:p4",
+          "spine_index": 0,
+          "kind": "p",
+          "block_index": 4,
+          "text": "\"Because it remembers something we forgot.\"",
+          "seq": 6
+        },
+        {
+          "passage_id": "ba8a8e1c6e9c553f:0:p5",
+          "spine_index": 0,
+          "kind": "p",
+          "block_index": 5,
+          "text": "Lena traced the river with her finger.",
+          "seq": 7
+        },
+        {
+          "passage_id": "ba8a8e1c6e9c553f:0:p6",
+          "spine_index": 0,
+          "kind": "p",
+          "block_index": 6,
+          "text": "The paper was soft at the folds.",
+          "seq": 8
+        },
+        {
+          "passage_id": "ba8a8e1c6e9c553f:0:p7",
+          "spine_index": 0,
+          "kind": "p",
+          "block_index": 7,
+          "text": "\"Maybe we can walk it anyway,\" she said.",
+          "seq": 9
+        },
+        {
+          "passage_id": "ba8a8e1c6e9c553f:1:p0",
+          "spine_index": 1,
+          "kind": "p",
+          "block_index": 0,
+          "text": "They followed the old line through the new streets.",
+          "seq": 0
+        },
+        {
+          "passage_id": "ba8a8e1c6e9c553f:1:p1",
+          "spine_index": 1,
+          "kind": "p",
+          "block_index": 1,
+          "text": "At the first corner, a bakery stood where a bridge had been.",
+          "seq": 1
+        },
+        {
+          "passage_id": "ba8a8e1c6e9c553f:1:l0",
+          "spine_index": 1,
+          "kind": "l",
+          "block_index": 0,
+          "text": "Ivo bought two rolls and gave her one.",
+          "seq": 2
+        },
+        {
+          "passage_id": "ba8a8e1c6e9c553f:1:l1",
+          "spine_index": 1,
+          "kind": "l",
+          "block_index": 1,
+          "text": "They ate while the traffic passed.",
+          "seq": 3
+        },
+        {
+          "passage_id": "ba8a8e1c6e9c553f:1:p2",
+          "spine_index": 1,
+          "kind": "p",
+          "block_index": 2,
+          "text": "\"Do you think the river misses itself?\" asked Lena.",
+          "seq": 4
+        },
+        {
+          "passage_id": "ba8a8e1c6e9c553f:1:p3",
+          "spine_index": 1,
+          "kind": "p",
+          "block_index": 3,
+          "text": "Ivo laughed, then considered it seriously.",
+          "seq": 5
+        },
+        {
+          "passage_id": "ba8a8e1c6e9c553f:1:p4",
+          "spine_index": 1,
+          "kind": "p",
+          "block_index": 4,
+          "text": "\"I thinkplaces remember the people who loved them.\"",
+          "seq": 6
+        },
+        {
+          "passage_id": "ba8a8e1c6e9c553f:1:p5",
+          "spine_index": 1,
+          "kind": "p",
+          "block_index": 5,
+          "text": "They walked until the map ended at a blank edge.",
+          "seq": 7
+        },
+        {
+          "passage_id": "ba8a8e1c6e9c553f:1:p6",
+          "spine_index": 1,
+          "kind": "p",
+          "block_index": 6,
+          "text": "Beyond it, the city continued without instruction.",
+          "seq": 8
+        },
+        {
+          "passage_id": "ba8a8e1c6e9c553f:1:p7",
+          "spine_index": 1,
+          "kind": "p",
+          "block_index": 7,
+          "text": "They stood there for a while, then turned back.",
+          "seq": 9
+        }
+      ]
+    },
+    {
+      "file": "illustrated.epub",
+      "sha256": "76c3199dff7f1864a76a361d455beee67291bd26a5a0b62b3a92a7c6aebf72c6",
+      "book_id": "76c3199dff7f1864",
+      "title": "The Lantern and the Map",
+      "author": "Example Author",
+      "language": "en",
+      "chapters": [
+        {
+          "spine_index": 0,
+          "title": "Chapter One: The Lantern"
+        },
+        {
+          "spine_index": 1,
+          "title": "Chapter Two: The Map"
+        }
+      ],
+      "passage_count": 15,
+      "passages": [
+        {
+          "passage_id": "76c3199dff7f1864:0:p0",
+          "spine_index": 0,
+          "kind": "p",
+          "block_index": 0,
+          "text": "The lantern hung above the door all winter.",
+          "seq": 0
+        },
+        {
+          "passage_id": "76c3199dff7f1864:0:p2",
+          "spine_index": 0,
+          "kind": "p",
+          "block_index": 2,
+          "text": "It was not bright, but it was steady.",
+          "seq": 1
+        },
+        {
+          "passage_id": "76c3199dff7f1864:0:p3",
+          "spine_index": 0,
+          "kind": "p",
+          "block_index": 3,
+          "text": "Travelers used it to find the inn.",
+          "seq": 2
+        },
+        {
+          "passage_id": "76c3199dff7f1864:0:l0",
+          "spine_index": 0,
+          "kind": "l",
+          "block_index": 0,
+          "text": "One traveler arrived with no luggage.",
+          "seq": 3
+        },
+        {
+          "passage_id": "76c3199dff7f1864:0:l1",
+          "spine_index": 0,
+          "kind": "l",
+          "block_index": 1,
+          "text": "Another arrived with a map and no destination.",
+          "seq": 4
+        },
+        {
+          "passage_id": "76c3199dff7f1864:0:p4",
+          "spine_index": 0,
+          "kind": "p",
+          "block_index": 4,
+          "text": "The innkeeper gave them both soup.",
+          "seq": 5
+        },
+        {
+          "passage_id": "76c3199dff7f1864:0:p5",
+          "spine_index": 0,
+          "kind": "p",
+          "block_index": 5,
+          "text": "At midnight, the lantern flickered once.",
+          "seq": 6
+        },
+        {
+          "passage_id": "76c3199dff7f1864:1:p0",
+          "spine_index": 1,
+          "kind": "p",
+          "block_index": 0,
+          "text": "The map showed a road that ended at the sea.",
+          "seq": 0
+        },
+        {
+          "passage_id": "76c3199dff7f1864:1:p1",
+          "spine_index": 1,
+          "kind": "p",
+          "block_index": 1,
+          "text": "Someone had drawn a small boat at the edge.",
+          "seq": 1
+        },
+        {
+          "passage_id": "76c3199dff7f1864:1:p2",
+          "spine_index": 1,
+          "kind": "p",
+          "block_index": 2,
+          "text": "The traveler with no luggage laughed.",
+          "seq": 2
+        },
+        {
+          "passage_id": "76c3199dff7f1864:1:l0",
+          "spine_index": 1,
+          "kind": "l",
+          "block_index": 0,
+          "text": "The innkeeper asked what was funny.",
+          "seq": 3
+        },
+        {
+          "passage_id": "76c3199dff7f1864:1:l1",
+          "spine_index": 1,
+          "kind": "l",
+          "block_index": 1,
+          "text": "The traveler said the boat was theirs.",
+          "seq": 4
+        },
+        {
+          "passage_id": "76c3199dff7f1864:1:p3",
+          "spine_index": 1,
+          "kind": "p",
+          "block_index": 3,
+          "text": "By morning, the map was gone.",
+          "seq": 5
+        },
+        {
+          "passage_id": "76c3199dff7f1864:1:p4",
+          "spine_index": 1,
+          "kind": "p",
+          "block_index": 4,
+          "text": "So was the traveler.",
+          "seq": 6
+        },
+        {
+          "passage_id": "76c3199dff7f1864:1:p5",
+          "spine_index": 1,
+          "kind": "p",
+          "block_index": 5,
+          "text": "Only the lantern remained, still burning.",
+          "seq": 7
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+fastapi>=0.115,<1.0
+uvicorn[standard]>=0.30,<1.0
+websockets>=13,<16
+httpx>=0.27,<1.0
+pydantic>=2.8,<3.0
+pydantic-settings>=2.4,<3.0
+python-multipart>=0.0.9,<1.0
+# EPUB container + TOC (ebooklib) and chapter DOM (BeautifulSoup/lxml).
+# TXT/XHTML legacy encodings are detected with charset-normalizer.
+ebooklib>=0.18,<0.20
+beautifulsoup4>=4.12,<5
+lxml>=5.0,<7
+charset-normalizer>=3.0,<4
+python-json-logger>=2.0,<4.0
+prometheus-client>=0.20,<1.0
+orjson>=3.10,<4.0
+pillow>=10,<13
+# Text-to-speech for the reader's read-aloud mode and card pronunciation.
+# miniaudio ships a bundled MP3 decoder, so no system ffmpeg is needed.
+edge-tts>=7.3,<8
+miniaudio>=1.60,<2

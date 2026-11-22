@@ -1,0 +1,175 @@
+#pragma once
+
+#include <Arduino.h>
+
+class InputManager {
+ public:
+  InputManager();
+  void begin();
+  uint8_t getState();
+
+  /**
+   * Updates the button states. Should be called regularly in the main loop.
+   */
+  void update();
+
+  /**
+   * Inject synthetic "just pressed" events for the given button bitmask, as if
+   * those buttons were physically pressed this frame. Must be called from the
+   * same task/context as update() (e.g. right after HalGPIO calls update()),
+   * NOT from an ISR or another task — it is not synchronized. The injected bits
+   * live for the current frame only; the next update() clears pressedEvents.
+   * The injection also timestamps buttonPressStart when no button was down, so
+   * getHeldTime() reports a ~1-frame hold instead of the time since the last
+   * real press (otherwise every long-press consumer would see a long press).
+   * Used by the BLE page-turner to feed page-turn key events into the normal
+   * input pipeline so no activity code needs to change.
+   *
+   * @param buttonMask OR of (1 << BTN_*) bits to mark as just-pressed
+   */
+  void injectPressedEvents(uint8_t buttonMask);
+
+  /**
+   * Inject a synthetic press that is HELD for `durationMs` instead of a single
+   * frame: delivers one press edge immediately, then keeps the bits down
+   * (isPressed() true, no further press edges, releases swallowed) until the
+   * deadline, after which the normal release edge fires. Used by the firmware's
+   * CMD:KEYHOLD debug command so long-press and repeat gesture paths can be
+   * exercised on-device without hands on the buttons. Same context rules as
+   * injectPressedEvents(): main-loop task only, not ISR/other-task safe.
+   *
+   * @param buttonMask OR of (1 << BTN_*) bits to hold down
+   * @param durationMs how long the synthetic press stays down
+   */
+  void injectHoldEvents(uint8_t buttonMask, uint32_t durationMs);
+
+  /**
+   * Sample the hardware while the main loop is blocked in a long synchronous
+   * operation (the serial SCREENSHOT framebuffer dump is the main one) and
+   * latch any new press edges. Without this, a physical tap that starts and
+   * ends between two update() calls is lost: buttons are polled only by the
+   * main loop, so a 100 ms tap inside a 500 ms dump never reaches an activity.
+   * update() merges the latched edges into its next frame. Main-loop task only.
+   */
+  void pollWhileBlocked();
+
+  /**
+   * Returns true if the button was being held at the time of the last #update() call.
+   *
+   * @param buttonIndex the button indexes
+   * @return the button current press state
+   */
+  bool isPressed(uint8_t buttonIndex) const;
+
+  /**
+   * Returns true if the button went from unpressed to pressed between the last two #update() calls.
+   *
+   * This differs from #isPressed() in that pressing and holding a button will cause this function
+   * to return true after the first #update() call, but false on subsequent calls, whereas #isPressed()
+   * will continue to return true.
+   *
+   * @param buttonIndex
+   * @return the button pressed state
+   */
+  bool wasPressed(uint8_t buttonIndex) const;
+
+  /**
+   * Returns true if any button started being pressed between the last two #update() calls
+   *
+   * @return true if any button started being pressed between the last two #update() calls
+   */
+  bool wasAnyPressed() const;
+
+  /**
+   * Returns true if the button went from pressed to unpressed between the last two #update() calls
+   *
+   * @param buttonIndex the button indexes
+   * @return the button release state
+   */
+  bool wasReleased(uint8_t buttonIndex) const;
+
+  /**
+   * Returns true if any button was released between the last two #update() calls
+   *
+   * @return  true if any button was released between the last two #update() calls
+   */
+  bool wasAnyReleased() const;
+
+  /**
+   * Returns the time between any button starting to be depressed and all buttons between released
+   *
+   * @return duration in milliseconds
+   */
+  unsigned long getHeldTime() const;
+
+  /**
+   * Returns the time the power button has been held
+   *
+   * @return duration in milliseconds
+   */
+  unsigned long getPowerButtonHeldTime() const;
+
+  // Button indices
+  static constexpr uint8_t BTN_BACK = 0;
+  static constexpr uint8_t BTN_CONFIRM = 1;
+  static constexpr uint8_t BTN_LEFT = 2;
+  static constexpr uint8_t BTN_RIGHT = 3;
+  static constexpr uint8_t BTN_UP = 4;
+  static constexpr uint8_t BTN_DOWN = 5;
+  static constexpr uint8_t BTN_POWER = 6;
+
+  // Pins
+#if defined(ONEPAGE_S3)
+  // OnePage V3.1 (ESP32-S3R8): front 4-key ADC ladder on GPIO1, PREV on
+  // GPIO15, NEXT/BOOT on GPIO0, KEY_A/power on GPIO21. See docs/sch.
+  static constexpr int BUTTON_ADC_PIN = 1;     // front 4-key ADC ladder (GPIO1 = ADC1_CH0)
+  static constexpr int BTN_UP_PIN = 15;        // KEY_PREV side key (GPIO, active-low)
+  static constexpr int BTN_DOWN_PIN = 0;       // KEY_NEXT side key (GPIO, active-low; BOOT strap)
+  static constexpr int POWER_BUTTON_PIN = 21;  // KEY_A (also hardware power-on; deep-sleep wake)
+#elif defined(ONEPAGE_C61)
+  static constexpr int BUTTON_ADC_PIN = 4;    // front 4-key ADC ladder (GPIO4 = ADC1_CH2)
+  static constexpr int BTN_UP_PIN = 6;        // PREV side key (GPIO, active-low)
+  static constexpr int BTN_DOWN_PIN = 9;      // NEXT side key (GPIO, active-low)
+  static constexpr int POWER_BUTTON_PIN = 2;  // WAKE side key (also deep-sleep wake)
+#else
+  static constexpr int BUTTON_ADC_PIN_1 = 1;
+  static constexpr int BUTTON_ADC_PIN_2 = 2;
+  static constexpr int POWER_BUTTON_PIN = 3;
+#endif
+
+  // Power button methods
+  bool isPowerButtonPressed() const;
+
+  // Button names
+  static const char* getButtonName(uint8_t buttonIndex);
+
+ private:
+  int getButtonFromADC(int adcValue, const int ranges[], int numButtons);
+
+  uint8_t currentState;
+  uint8_t lastState;
+  uint8_t pressedEvents;
+  uint8_t releasedEvents;
+  unsigned long lastDebounceTime;
+  unsigned long buttonPressStart;
+  unsigned long buttonPressFinish;
+  unsigned long powerButtonPressStart;
+  unsigned long powerButtonPressFinish;
+  uint8_t holdMask;
+  uint32_t holdDeadline;
+  // Raw hardware state at the last update()/pollWhileBlocked() and press edges
+  // sampled while the main loop was blocked, waiting to be merged by update().
+  uint8_t latchState;
+  uint8_t latchPresses;
+
+  static constexpr int NUM_BUTTONS_1 = 4;
+  static const int ADC_RANGES_1[];
+
+  static constexpr int NUM_BUTTONS_2 = 2;
+  static const int ADC_RANGES_2[];
+
+  static constexpr int ADC_NO_BUTTON = 3900;
+  static constexpr unsigned long DEBOUNCE_DELAY = 5;
+
+  static const char* BUTTON_NAMES[];
+};

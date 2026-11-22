@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>壹页 · 串口遥控 — OnePage Serial Remote</title>
+<link rel="stylesheet" href="/static/style.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%23c2361b'/%3E%3Ctext x='16' y='23' font-size='18' text-anchor='middle' fill='%23f6f4ef' font-family='serif'%3E壹%3C/text%3E%3C/svg%3E">
+</head>
+<body>
+<header class="top">
+  <div class="brand">
+    <span class="seal" aria-hidden="true">壹页</span>
+    <div class="brand-text">
+      <h1>壹页 · 串口遥控</h1>
+      <span class="en">ONEPAGE SERIAL REMOTE · 4.26″ E-INK</span>
+    </div>
+  </div>
+  <div class="top-right">
+    <span class="link-state"><i class="led" id="led"></i><span id="connText">连接中…</span></span>
+    <span class="chip mono" id="portChip">/dev/ttyACM0</span>
+    <span class="chip mono" id="seqChip">FRAME —</span>
+  </div>
+</header>
+
+<main class="layout">
+  <section class="stage">
+    <div class="device-wrap enter" style="--d:.05s">
+      <div class="device" id="device">
+        <div class="frame">
+          <div class="face">
+            <div class="screen-zone">
+              <div class="screen-wrap" id="screenWrap">
+                <img id="screen" alt="电子书墨屏当前画面" draggable="false">
+                <div class="screen-empty" id="screenEmpty">
+                  <span class="empty-seal">壹</span>
+                  <span class="empty-title">等待首帧</span>
+                  <span class="empty-sub mono">CMD:SCREENSHOT</span>
+                </div>
+                <div class="screen-overlay" id="screenOverlay">
+                  <i class="scan"></i>
+                  <span class="overlay-tag mono" id="overlayTag">REFRESH</span>
+                </div>
+              </div>
+            </div>
+            <div class="chin">
+              <button class="pill k-back" data-key="back" title="返回 · Esc / Backspace" aria-label="返回键">
+                <span class="glyph">↩</span><span class="pill-label">返回</span>
+              </button>
+              <div class="pill pill-split" role="group" aria-label="左右导航键">
+                <button class="half k-left" data-key="left" title="左 · ←" aria-label="左键"><span class="glyph">◂</span></button>
+                <i class="tick" aria-hidden="true"></i>
+                <button class="half k-right" data-key="right" title="右 · →" aria-label="右键"><span class="glyph">▸</span></button>
+              </div>
+              <button class="pill k-ok" data-key="ok" title="确认 · Enter" aria-label="确认键">
+                <span class="glyph">✓</span><span class="pill-label">确认</span>
+              </button>
+            </div>
+            <div class="edge-bottom" aria-hidden="true">
+              <i class="mic"></i>
+              <i class="usb"></i>
+              <i class="charge-led" id="chargeLed"></i>
+            </div>
+            <i class="lanyard" aria-hidden="true"></i>
+          </div>
+          <button class="side k-power" data-key="power" title="唤醒 / AI · P（长按触发 AI）" aria-label="唤醒键">
+            <span class="glyph">⏻</span>
+          </button>
+          <div class="side side-rocker" role="group" aria-label="翻页摇杆">
+            <button class="half k-up" data-key="up" title="上一页 · ↑" aria-label="上一页键"><span class="glyph">▴</span></button>
+            <button class="half k-down" data-key="down" title="下一页 · ↓" aria-label="下一页键"><span class="glyph">▾</span></button>
+          </div>
+        </div>
+      </div>
+      <div class="stage-meta mono enter" style="--d:.15s">
+        <span id="metaSeq">SEQ —</span><span id="metaMs">— ms</span><span id="metaCrc">CRC —</span>
+      </div>
+    </div>
+
+    <div class="stage-caption enter" style="--d:.2s">
+      <h2>壹页 · OnePage</h2>
+      <p>4.26″ 电子墨水屏 · 116 × 66.5 × 5 mm · 64 g · CNC 铝合金中框 / PET 面板 · 三段式下巴导航 + 侧边翻页摇杆</p>
+      <ul class="legend mono">
+        <li><b>返回</b> back <kbd>Esc</kbd></li>
+        <li><b>左 / 右</b> left·right <kbd>←</kbd><kbd>→</kbd></li>
+        <li><b>确认</b> ok <kbd>⏎</kbd></li>
+        <li><b>上 / 下</b> up·down <kbd>↑</kbd><kbd>↓</kbd></li>
+        <li><b>唤醒/AI</b> power <kbd>P</kbd></li>
+      </ul>
+      <p class="stage-note">指令经串口 <span class="mono">CMD:KEY / CMD:KEYHOLD</span> 下发；固件每次渲染完成上报 <span class="mono">[DISP]</span>，服务端自动回读 <span class="mono">CMD:SCREENSHOT</span> 墨屏帧（FNV-1a 校验）。</p>
+    </div>
+  </section>
+
+  <aside class="side-col">
+    <section class="panel deck enter" style="--d:.1s">
+      <div class="panel-head"><h2>操作台</h2><span class="en mono">CONTROL DECK</span></div>
+      <div class="params">
+        <div class="param">
+          <label for="holdMode">长按模式</label>
+          <span class="switch"><input type="checkbox" id="holdMode"><i></i></span>
+          <output class="mono" id="holdBadge">短按</output>
+        </div>
+        <div class="param">
+          <label for="holdMs">长按时长</label>
+          <input type="range" id="holdMs" min="200" max="3000" step="50" value="1000">
+          <output class="mono" id="holdMsOut">1000ms</output>
+        </div>
+        <div class="param">
+          <label for="settleMs">落屏等待</label>
+          <input type="range" id="settleMs" min="100" max="1500" step="50" value="450">
+          <output class="mono" id="settleMsOut">450ms</output>
+        </div>
+        <div class="param">
+          <label for="followMs">额外追帧（可选）</label>
+          <input type="range" id="followMs" min="0" max="15000" step="500" value="0">
+          <output class="mono" id="followMsOut">0ms</output>
+        </div>
+        <div class="param">
+          <label for="autoShot">按键后自动截图</label>
+          <span class="switch"><input type="checkbox" id="autoShot" checked><i></i></span>
+          <output class="mono">ON</output>
+        </div>
+        <div class="param">
+          <label for="autoScroll">日志自动滚动</label>
+          <span class="switch"><input type="checkbox" id="autoScroll" checked><i></i></span>
+          <output class="mono">ON</output>
+        </div>
+        <div class="param">
+          <label for="orient">屏幕视图</label>
+          <select id="orient">
+            <option value="port" selected>竖屏 · 可读 480×800</option>
+            <option value="land">面板原生 800×480</option>
+          </select>
+        </div>
+        <div class="param">
+          <label for="portSel">串口</label>
+          <select id="portSel" aria-label="选择串口"></select>
+          <button class="tool" id="btnPorts" title="刷新串口列表">刷新</button>
+        </div>
+      </div>
+      <div class="actions">
+        <button class="act act-primary" id="btnShot">立即截图</button>
+        <button class="act" id="btnConnect">连接所选串口</button>
+        <button class="act" id="btnReconnect">重连串口</button>
+        <button class="act" id="btnInfo">云信息</button>
+      </div>
+      <dl class="info-box mono" id="infoBox" hidden>
+        <div><dt>relay</dt><dd id="infoUrl">—</dd></div>
+        <div><dt>device</dt><dd id="infoDevice">—</dd></div>
+        <div><dt>token</dt><dd id="infoToken">—</dd></div>
+      </dl>
+    </section>
+
+    <section class="panel desk-in enter" style="--d:.14s">
+      <div class="panel-head">
+        <h2>输入台</h2><span class="en mono">TEXT / VOICE INJECT</span>
+        <span class="count mono" id="inState">就绪</span>
+      </div>
+      <div class="in-body">
+        <textarea id="inText" rows="2" maxlength="400"
+          placeholder="输入文本，作为一轮转写注入设备当前语音界面（Ctrl+Enter 发送）"></textarea>
+        <div class="in-row">
+          <button class="act act-primary" id="btnText">发送文本</button>
+          <span class="mono in-count" id="inCount">0/400</span>
+        </div>
+        <div class="in-row mic-row">
+          <button class="mic-btn" id="btnMic" aria-pressed="false">
+            <i class="mic-dot"></i><span id="micLabel">开始录音</span>
+          </button>
+          <div class="meter" aria-hidden="true"><i id="meterFill"></i></div>
+          <span class="mono mic-time" id="micTime">0.0s</span>
+        </div>
+        <p class="in-hint" id="micHint">点击开始 / 停止录音，上限 8 s；停止后以 16 kHz 单声道 PCM 经串口注入当前语音回合。</p>
+        <p class="in-note">注入目标：设备当前语音输入界面（AI助手对话、AI书童提问、语音书签、飞鸽留言等）。设备不在语音界面或回合进行中时会被拒绝。</p>
+      </div>
+    </section>
+
+    <section class="panel tour enter" style="--d:.22s">
+      <div class="panel-head">
+        <h2>功能巡检</h2><span class="en mono">FUNCTION TOUR</span>
+        <div class="console-tools">
+          <button class="tool" id="btnTourAll">全部巡检</button>
+          <button class="tool" id="btnTourStop" disabled>停止</button>
+        </div>
+      </div>
+      <div class="tour-bar" aria-hidden="true"><i id="tourFill"></i></div>
+      <div class="tour-list" id="tourList"></div>
+      <p class="in-note" id="tourNote">巡检以串口按键序列驱动真机走完各功能，按日志标记与画面变化判定通过；全程约数分钟，可随时停止。音频流程使用内置测试语音（espeak-ng 合成）。</p>
+    </section>
+
+    <section class="panel console enter" style="--d:.18s">
+      <div class="panel-head">
+        <h2>串口日志</h2><span class="count mono" id="logCount">0</span>
+        <div class="console-tools">
+          <input id="logFilter" type="search" placeholder="过滤…" aria-label="过滤日志">
+          <button class="tool" id="btnPause" title="暂停滚动">暂停</button>
+          <button class="tool" id="btnClear" title="清空显示">清空</button>
+        </div>
+      </div>
+      <div class="log mono" id="log" aria-live="polite"></div>
+    </section>
+
+    <footer class="statusbar mono enter" style="--d:.26s">
+      <span id="sbPort">port —</span>
+      <span id="sbKey">key —</span>
+      <span id="sbSeq">seq —</span>
+      <span id="sbMs">— ms</span>
+      <span class="kbd-hints"><kbd>↑</kbd><kbd>↓</kbd><kbd>←</kbd><kbd>→</kbd><kbd>⏎</kbd><kbd>Esc</kbd><kbd>P</kbd> 键盘可直接按键</span>
+    </footer>
+  </aside>
+</main>
+
+<div id="toasts" aria-live="assertive"></div>
+<script src="/static/flows.js"></script>
+<script src="/static/app.js"></script>
+</body>
+</html>
