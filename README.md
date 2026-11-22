@@ -1,5 +1,7 @@
 # OnePage Reader — 固件
 
+**当前固件版本：1.11.0**
+
 > **基于 [CrossPoint Reader](https://github.com/crosspoint-reader/crosspoint-reader)**（MIT 许可 © Dave Allie）。
 > 本项目是 CrossPoint 移植到自研 **OnePage** 电子书阅读器（**ESP32-C61**）的**独立移植版**。
 > 上游面向 ESP32-C3 的 Xteink X4/X3；本仓库将固件适配到 OnePage C61 硬件。
@@ -106,7 +108,7 @@ CrossPoint 是开源电子书阅读器固件——社区共建、完全可折腾
 ### 命令行（OnePage / ESP32-C61）
 
 1. 安装 [`esptool`](https://github.com/espressif/esptool)（`pip install esptool`）。
-2. 自行构建（`~/.platformio/penv/bin/pio run -e onepage`）或从本仓库的 [Releases](https://github.com/zhou19830318/Reading_Companion_S3/releases) 页面下载 `onepage-firmware-*.bin`。
+2. 自行构建（`~/.platformio/penv/bin/pio run -e onepage`）或从本仓库的 [Releases](https://github.com/zhou19830318/Reading_Companion_S3_S3/releases) 页面下载 `onepage-firmware-*.bin`。
 3. 用 USB-C 连接；找到串口（macOS 上为 `ls /dev/cu.usbmodem*`）。
 4. **烧录方式取决于板载 SPI flash 厂商** —— 先探测：`esptool --chip esp32c61 -p <port> flash-id`，读取 Manufacturer 字节：
    - **Winbond**（`ef`）：支持 stub + 压缩，较快（约 95 秒）：
@@ -257,8 +259,8 @@ esptool.py --chip esp32c3 --port /dev/ttyACM0 --baud 921600 write_flash 0x10000 
 ### 环境搭建
 
 ```bash
-git clone https://github.com/zhou19830318/Reading_Companion.git
-cd Reading_Companion
+git clone https://github.com/zhou19830318/Reading_Companion_S3.git
+cd Reading_Companion_S3
 ```
 
 无需子模块：板卡 SDK（`open-onepage-sdk/` —— EInkDisplay、InputManager、

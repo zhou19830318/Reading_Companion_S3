@@ -46,7 +46,7 @@ The reported major version must be 21 or newer.
 ## Clone and initialize
 
 ```sh
-git clone https://github.com/zhou19830318/Reading_Companion.git
+git clone https://github.com/zhou19830318/Reading_Companion_S3.git
 cd Reading_Companion
 ```
 

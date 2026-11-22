@@ -53,7 +53,7 @@ readlink -f /opt/reading-companion-relay/current
 ### Ubuntu / Debian（一条命令）
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/zhou19830318/Reading_Companion/main/relay/deploy/bootstrap.sh \
+curl -fsSL https://raw.githubusercontent.com/zhou19830318/Reading_Companion_S3/main/relay/deploy/bootstrap.sh \
   | sudo bash -s -- --dashscope-key sk-...
 ```
 

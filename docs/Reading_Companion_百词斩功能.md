@@ -539,6 +539,6 @@ src/input/KeyGesture.*
 
 ## References
 
-[1]: https://github.com/zhou19830318/Reading_Companion/blob/main/USER_GUIDE.md "Reading_Companion 用户指南"
-[2]: https://github.com/zhou19830318/Reading_Companion/blob/main/SCOPE.md "Reading_Companion 项目范围"
-[3]: https://github.com/zhou19830318/Reading_Companion/blob/main/relay/README.md "Reading_Companion VoiceRelay 与离线词典"
+[1]: https://github.com/zhou19830318/Reading_Companion_S3/blob/main/USER_GUIDE.md "Reading_Companion 用户指南"
+[2]: https://github.com/zhou19830318/Reading_Companion_S3/blob/main/SCOPE.md "Reading_Companion 项目范围"
+[3]: https://github.com/zhou19830318/Reading_Companion_S3/blob/main/relay/README.md "Reading_Companion VoiceRelay 与离线词典"
