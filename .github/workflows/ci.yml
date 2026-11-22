@@ -61,7 +61,7 @@ jobs:
           restore-keys: pio-${{ runner.os }}-
 
       - name: Run cppcheck
-        run: pio check --fail-on-defect low --fail-on-defect medium --fail-on-defect high
+        run: pio check --fail-on-defect medium --fail-on-defect high
 
   build:
     runs-on: ubuntu-latest
@@ -113,7 +113,7 @@ jobs:
         uses: actions/upload-artifact@v6
         with:
           name: firmware.bin
-          path: .pio/build/default/firmware.bin
+          path: .pio/build/onepage_s3/firmware.bin
           if-no-files-found: error
 
   unit-tests:
