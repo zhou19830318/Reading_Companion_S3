@@ -391,17 +391,16 @@ void SettingsActivity::openSleepTimeoutPicker() {
 void SettingsActivity::openVolumePicker() {
   // Same picker design as the sleep timeout: big value + level bar, Left/Right
   // and Up/Down both step by 10 so the value stays on the 0-100 tens grid.
-  startActivityForResult(
-      std::make_unique<IntervalSelectionActivity>(renderer, mappedInput, "VolumeInterval", StrId::STR_VOLUME,
-                                                  StrId::STR_VOLUME_STEP_HINT, SETTINGS.volume, 0, 100, 10, 10,
-                                                  StrId::STR_VOLUME_VALUE_FORMAT, false, true),
-      [this](const ActivityResult& result) {
-        if (!result.isCancelled) {
-          SETTINGS.volume = static_cast<uint8_t>(std::get<IntervalResult>(result.data).value);
-          SETTINGS.saveToFile();
-        }
-        requestUpdate();
-      });
+  startActivityForResult(std::make_unique<IntervalSelectionActivity>(
+                             renderer, mappedInput, "VolumeInterval", StrId::STR_VOLUME, StrId::STR_VOLUME_STEP_HINT,
+                             SETTINGS.volume, 0, 100, 10, 10, StrId::STR_VOLUME_VALUE_FORMAT, false, true),
+                         [this](const ActivityResult& result) {
+                           if (!result.isCancelled) {
+                             SETTINGS.volume = static_cast<uint8_t>(std::get<IntervalResult>(result.data).value);
+                             SETTINGS.saveToFile();
+                           }
+                           requestUpdate();
+                         });
 }
 
 void SettingsActivity::render(RenderLock&&) {
@@ -472,13 +471,11 @@ void SettingsActivity::render(RenderLock&&) {
 
   // Draw help text
   const bool opensPicker =
-      selectedSettingIndex > 0 &&
-      ((*currentSettings)[selectedSettingIndex - 1].nameId == StrId::STR_TIME_TO_SLEEP ||
-       (*currentSettings)[selectedSettingIndex - 1].nameId == StrId::STR_VOLUME);
-  const auto confirmLabel =
-      (selectedSettingIndex == 0)
-          ? I18N.get(categoryNames[(selectedCategoryIndex + 1) % categoryCount])
-          : (opensPicker ? tr(STR_SELECT) : tr(STR_TOGGLE));
+      selectedSettingIndex > 0 && ((*currentSettings)[selectedSettingIndex - 1].nameId == StrId::STR_TIME_TO_SLEEP ||
+                                   (*currentSettings)[selectedSettingIndex - 1].nameId == StrId::STR_VOLUME);
+  const auto confirmLabel = (selectedSettingIndex == 0)
+                                ? I18N.get(categoryNames[(selectedCategoryIndex + 1) % categoryCount])
+                                : (opensPicker ? tr(STR_SELECT) : tr(STR_TOGGLE));
   const auto labels = mappedInput.mapLabels(tr(STR_BACK), confirmLabel, tr(STR_DIR_UP), tr(STR_DIR_DOWN));
   GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
 

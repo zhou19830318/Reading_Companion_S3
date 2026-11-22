@@ -403,9 +403,9 @@ int prevSolarTerm(uint16_t year, uint8_t month, uint8_t day, uint16_t& termYear,
         const uint8_t index = static_cast<uint8_t>(2 * (m - 1) + i);
         const int termDayOfMonth = solarTermDay(static_cast<uint16_t>(y), index);
         if (termDayOfMonth < 0) continue;
-        const i64 delta = daysFromCivil(static_cast<uint16_t>(y), static_cast<uint8_t>(m),
-                                        static_cast<uint8_t>(termDayOfMonth)) -
-                          daysFromCivil(year, month, day);
+        const i64 delta =
+            daysFromCivil(static_cast<uint16_t>(y), static_cast<uint8_t>(m), static_cast<uint8_t>(termDayOfMonth)) -
+            daysFromCivil(year, month, day);
         if (delta < 0) {
           termYear = static_cast<uint16_t>(y);
           termMonth = static_cast<uint8_t>(m);

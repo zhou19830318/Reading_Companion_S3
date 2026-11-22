@@ -70,8 +70,7 @@ TEST(AlmanacLunar, OutOfRangeRejected) {
 
 // Hong Kong Observatory 2026 solar-term table (day of month).
 TEST(AlmanacTerms, MatchesHko2026) {
-  static const int expected[24] = {5, 20, 4, 18, 5, 20, 5, 20, 5, 21, 5, 21,
-                                   7, 23, 7, 23, 7, 23, 8, 23, 7, 22, 7, 22};
+  static const int expected[24] = {5, 20, 4, 18, 5, 20, 5, 20, 5, 21, 5, 21, 7, 23, 7, 23, 7, 23, 8, 23, 7, 22, 7, 22};
   for (uint8_t i = 0; i < Almanac::TERM_COUNT; i++) {
     EXPECT_EQ(Almanac::solarTermDay(2026, i), expected[i]) << "term index " << static_cast<int>(i);
   }
@@ -79,10 +78,10 @@ TEST(AlmanacTerms, MatchesHko2026) {
 
 // Cross-year spot checks from the published almanac data.
 TEST(AlmanacTerms, SpotChecksOtherYears) {
-  EXPECT_EQ(Almanac::solarTermOn(2024, 2, 4), 2);    // 立春
-  EXPECT_EQ(Almanac::solarTermOn(2024, 12, 21), 23); // 冬至 2024-12-21
-  EXPECT_EQ(Almanac::solarTermOn(2025, 12, 21), 23); // 冬至 2025-12-21
-  EXPECT_EQ(Almanac::solarTermOn(2026, 2, 4), 2);    // 立春
+  EXPECT_EQ(Almanac::solarTermOn(2024, 2, 4), 2);     // 立春
+  EXPECT_EQ(Almanac::solarTermOn(2024, 12, 21), 23);  // 冬至 2024-12-21
+  EXPECT_EQ(Almanac::solarTermOn(2025, 12, 21), 23);  // 冬至 2025-12-21
+  EXPECT_EQ(Almanac::solarTermOn(2026, 2, 4), 2);     // 立春
 }
 
 TEST(AlmanacTerms, OnAndNext) {
@@ -121,8 +120,8 @@ TEST(AlmanacGanZhi, DayPillar) {
 
 TEST(AlmanacGanZhi, MonthAndYearPillar) {
   EXPECT_EQ(monthPillar(2026, 11, 16), "己亥");
-  EXPECT_EQ(monthPillar(2026, 3, 4), "庚寅");   // 惊蛰 is on 3-05: 3-04 is still 寅月
-  EXPECT_EQ(monthPillar(2026, 3, 5), "辛卯");   // 惊蛰: 卯月 starts
+  EXPECT_EQ(monthPillar(2026, 3, 4), "庚寅");  // 惊蛰 is on 3-05: 3-04 is still 寅月
+  EXPECT_EQ(monthPillar(2026, 3, 5), "辛卯");  // 惊蛰: 卯月 starts
   EXPECT_EQ(std::string(Almanac::yearGanZhi(2026)), "丙午");
   EXPECT_EQ(std::string(Almanac::zodiac(2026)), "马");
   // A January date before 立春 still belongs to the previous 干支 year.
