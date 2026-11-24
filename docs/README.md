@@ -11,6 +11,12 @@
 - [AI 原生智能阅读终端渐进式落地任务清单](tasks/2026-11-19-ai-native-implementation.md) — 分阶段任务、验收与待决策项
 - [V1 接口与数据契约](ai-native/api-v1.md) — passage_id、/reader/query、/sync 冻结契约
 - [v4.0-development-plan.md](v4.0-development-plan.md) — v4.0 实施计划（历史，含构建/烧录流程）
+- [RH-01 阅读会话追踪任务记录](tasks/2026-11-22-reading-history-rh01.md) — 会话状态机、90 s 空闲、JSONL 落盘
+- [RH-02/03 每日聚合与阅读热力图任务记录](tasks/2026-11-23-reading-history-rh02-rh03.md) — 年聚合文件、流式合并、首页 12 周热力图
+- [AI 界面吉祥物与空状态任务记录](tasks/2026-11-24-ai-companion-mascot.md) — 1-bit「书灵」角色、七种姿势、各 AI 屏的放置与验证
+- [RP-01/02 阅读计划与空余时段任务记录](tasks/2026-11-23-reading-plan-rp01-rp02.md) — plans.json / slots.json、列表与编辑页、空余时段
+- [RP-03 本地阅读建议任务记录](tasks/2026-11-24-reading-plan-rp03.md) — 周目标 + 近 14 天均速 → 每日分钟与今日时段（离线、纯公式）
+- [UI 走查与优化（2026-11-23）](ui/2026-11-23-ui-audit.md) — 计划/统计/首页的焦点、空状态与文案修正；保留项说明
 - [voice-openclaw-port-plan.md](voice-openclaw-port-plan.md) — 语音移植方案（历史；OpenClaw 路径已移除，现全部走 voice relay）
 
 ## 架构与模块

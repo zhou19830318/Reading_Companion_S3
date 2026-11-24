@@ -3,17 +3,17 @@
 **当前固件版本：1.11.0**
 
 > **基于 [CrossPoint Reader](https://github.com/crosspoint-reader/crosspoint-reader)**（MIT 许可 © Dave Allie）。
-> 本项目是 CrossPoint 移植到自研 **OnePage** 电子书阅读器（**ESP32-C61**）的**独立移植版**。
-> 上游面向 ESP32-C3 的 Xteink X4/X3；本仓库将固件适配到 OnePage C61 硬件。
+> 本项目是 CrossPoint 移植到自研 **OnePage** 电子书阅读器（**ESP32-S3R8**，V3.1 板）的**独立移植版**。
+> 上游面向 ESP32-C3 的 Xteink X4/X3；本仓库将固件适配到 OnePage 硬件，同时保留早期的 ESP32-C61 构建环境（`[env:onepage]`）。
 > 与 CrossPoint 项目及 Xteink 均无关联。
 
 CrossPoint 是开源电子书阅读器固件——社区共建、完全可折腾、永久免费。本移植保留其引擎核心，并适配 OnePage 设备。
 
-**运行于：** 自研 **OnePage** 阅读器（ESP32-C61）。OnePage 开源硬件项目的一部分——固件 · 板卡（PCB）· 3D 外壳 · 网站；硬件与 3D 文件与固件一同包含在该项目中。
+**运行于：** 自研 **OnePage** 阅读器（ESP32-S3R8，16 MB flash + 8 MB PSRAM；C61 版仍可用 `[env:onepage]` 构建）。OnePage 开源硬件项目的一部分——固件 · 板卡（PCB）· 3D 外壳 · 网站；硬件与 3D 文件与固件一同包含在该项目中。
 
 ## 相对上游 CrossPoint 的新增 / 改动
 
-- **ESP32-C61 支持** —— 新增 `onepage` PlatformIO 环境与板卡定义、内嵌板卡 SDK（`open-onepage-sdk`，非子模块）、核心与 HAL 各处的 `#ifdef ONEPAGE_C61` 保护。
+- **OnePage 板卡支持** —— ESP32-S3R8 的 `onepage_s3` 环境（默认开发/发布目标）与 ESP32-C61 的 `onepage` 环境、板卡定义、内嵌板卡 SDK（`open-onepage-sdk`，非子模块），以及核心与 HAL 各处的 `ONEPAGE_S3` / `ONEPAGE_C61` 保护。
 - **简体与繁体中文界面** —— 新增 i18n 翻译与 SD 卡 CJK 字体回退。
 - **AI 语音助手** —— 按住说话、流式语音识别与模型回答：录音实时流式送往内置 **VoiceRelay** 服务器，识别文本与回答以事件返回。设备端聊天历史与云端 API 密钥只存放在你自己的服务器上；relay 是唯一后端，没有本机 STT 或其它网关兜底。
 - **飞鸽传书** —— 两台 OnePage 通过同一个自建 relay 互发消息：在线实时收取、离线存储转发；支持语音转文字直达发送、键盘输入、按“当天 / 昨天 / 日期”显示消息时间，以及一键清空双方会话。消息由 relay 保存，默认保留 7 天 / 每接收方 100 条。
@@ -21,6 +21,9 @@ CrossPoint 是开源电子书阅读器固件——社区共建、完全可折腾
 - **离线词典查询** —— 不离开书籍即可查词，由 relay 的离线词典卡（`relay/dict-data/`，无云端调用）提供。
 - **自建 VoiceRelay 服务器** —— 仓库自带 FastAPI 服务（`relay/`）：实时语音识别、流式 LLM 与图片生成统一在一个 API 之下，附 systemd/nginx 部署脚本、测试与离线词典数据。
 - **行情看板** —— 由 relay 的 `/api/v1/markets` 上游数据驱动的指数 / 个股卡片，在设备上即可查看当日与区间走势。
+- **阅读记录与统计** —— 每次阅读结束时把会话（时长、前进页数、结束位置、书籍）追加到 SD 卡 JSONL；按天流式合并为年度聚合文件，首页显示 12 周阅读热力图，并提供周 / 月 / 年汇总的阅读统计页。全部离线，不依赖 relay。
+- **阅读计划** —— 为目标书籍设定期限、每周分钟数（可选每周页数）、优先级与状态，并记录每周可阅读的空余时段；编辑页给出离线建议（“每天约 N 分钟”+ 今天可读的时段），只依据计划与最近 14 天的实际阅读速度，无网络、无 AI。
+- **AI 书灵** —— 1-bit 卡通角色，在 AI 助手、语音书签、查字典、生图与 AI 书童的空白/等待/失败状态中出现（7 种姿势，无动画、零额外帧缓冲）。
 - **重新设计的 Web 界面** —— 四个浏览器页面（首页 / 文件 / 设置 / 字体）共用一套设计系统，完全双语（中文 / EN），设置按类别分栏，并新增保存 / 恢复默认 / 重启控件，以及配置 Relay URL、设备 ID 与 Token 的云服务面板（存于 NVS，绝不回显）。
 - **蓝牙翻页器** —— BLE HID 主机，可学习任意遥控器的按键。
 - **功耗优化** —— BLE 活跃空闲电流 42 → 23 mA（控制器 modem-sleep + 32.768 kHz 睡眠时钟 + CPU DFS）。
@@ -101,25 +104,26 @@ CrossPoint 是开源电子书阅读器固件——社区共建、完全可折腾
 
 ## 安装固件
 
-> **OnePage（C61）提示：** crosspointreader.com 上的网页安装器只提供上游 **X3/X4（ESP32-C3）** 的构建——**不能**刷 OnePage。
+> **OnePage 提示：** crosspointreader.com 上的网页安装器只提供上游 **X3/X4（ESP32-C3）** 的构建——**不能**刷 OnePage（C61 或 S3）。
 > 请自行构建 `firmware.bin`（见[开发快速上手](#开发快速上手)），再用下方命令行烧录。
 > 后文的网页安装器章节仅为上游 X 系列流程的参考。
 
-### 命令行（OnePage / ESP32-C61）
+### 命令行（OnePage / ESP32-S3R8）
 
 1. 安装 [`esptool`](https://github.com/espressif/esptool)（`pip install esptool`）。
-2. 自行构建（`~/.platformio/penv/bin/pio run -e onepage`）或从本仓库的 [Releases](https://github.com/zhou19830318/Reading_Companion_S3_S3/releases) 页面下载 `onepage-firmware-*.bin`。
+2. 自行构建（`~/.platformio/penv/bin/pio run -e onepage_s3`）或从本仓库的 [Releases](https://github.com/zhou19830318/Reading_Companion_S3/releases) 页面下载 `onepage-s3-firmware-*.bin`。
+   Release 产物是从 `0x0` 开始的合并镜像；自己构建的 `.pio/build/onepage_s3/firmware.bin` 则从 `0x10000` 烧录（或直接用 `pio run -e onepage_s3 -t upload`）。
 3. 用 USB-C 连接；找到串口（macOS 上为 `ls /dev/cu.usbmodem*`）。
-4. **烧录方式取决于板载 SPI flash 厂商** —— 先探测：`esptool --chip esp32c61 -p <port> flash-id`，读取 Manufacturer 字节：
-   - **Winbond**（`ef`）：支持 stub + 压缩，较快（约 95 秒）：
+4. **烧录方式取决于板载 SPI flash 厂商** —— 先探测：`esptool --chip esp32s3 -p <port> flash-id`，读取 Manufacturer 字节：
+   - **Winbond**（`ef`）：支持 stub + 压缩，较快：
      ```bash
-     esptool --chip esp32c61 -p <port> -b 921600 write-flash \
-       --flash-mode dio --flash-freq 80m --flash-size 16MB 0x10000 firmware.bin
+     esptool --chip esp32s3 -p <port> -b 921600 write-flash \
+       --flash-mode qio --flash-freq 80m --flash-size 16MB 0x0 onepage-s3-firmware-*.bin
      ```
-   - **Puya** PY25Q128HA（`85`）：stub 压缩会崩溃 —— **必须**加 `--no-stub`（约 380 秒）：
+   - **Puya** PY25Q128HA（`85`，V3.1 板常见）：stub 压缩会崩溃 —— **必须**加 `--no-stub`（约 380 秒）：
      ```bash
-     esptool --chip esp32c61 --no-stub -p <port> -b 115200 write-flash \
-       --flash-mode dio --flash-freq 80m --flash-size 16MB 0x10000 firmware.bin
+     esptool --chip esp32s3 --no-stub -p <port> -b 115200 write-flash \
+       --flash-mode qio --flash-freq 80m --flash-size 16MB 0x0 onepage-s3-firmware-*.bin
      ```
    成功与否以输出中的 "Hash of data verified" 行为准，不要依据 esptool 的退出码判断。
 
@@ -235,6 +239,9 @@ esptool.py --chip esp32c3 --port /dev/ttyACM0 --baud 921600 write_flash 0x10000 
 
 - [AI 原生智能阅读终端实施计划](./docs/AI原生智能阅读终端_可行性评估与实施计划.md) —— 可行性、端云边界与 V1–V4 分期（待批准）
 - [AI 原生落地任务清单](./docs/tasks/2026-11-19-ai-native-implementation.md) —— 分阶段任务与验收
+- [阅读记录 RH-01](./docs/tasks/2026-11-22-reading-history-rh01.md) / [每日聚合与热力图 RH-02/03](./docs/tasks/2026-11-23-reading-history-rh02-rh03.md)
+- [阅读计划 RP-01/02](./docs/tasks/2026-11-23-reading-plan-rp01-rp02.md) / [本地建议 RP-03](./docs/tasks/2026-11-24-reading-plan-rp03.md)
+- [UI 走查与优化](./docs/ui/2026-11-23-ui-audit.md)
 - [v4.0 开发计划](./docs/v4.0-development-plan.md) —— 历史实施计划
 - [产品需求文档（PRD）](<./docs/OnePage_additional%20_PRD.md>) —— 历史需求稿
 - [语音助手移植计划](./docs/voice-openclaw-port-plan.md) —— 历史记录；其中的 OpenClaw 路径已从固件移除，现全部走 relay
@@ -271,8 +278,9 @@ BatteryMonitor、SDCardManager）已内嵌仓库，并通过 `platformio.ini`
 
 ```bash
 # pio 需运行在 Python 3.10+ 上；若你的 `pio` 用的是旧版 Python，请用 penv 里的那个：
-~/.platformio/penv/bin/pio run -e onepage            # 构建（C61）
-~/.platformio/penv/bin/pio run -e onepage -t upload  # 构建 + 烧录
+~/.platformio/penv/bin/pio run -e onepage_s3            # 构建（S3，默认目标）
+~/.platformio/penv/bin/pio run -e onepage_s3 -t upload  # 构建 + 烧录
+~/.platformio/penv/bin/pio run -e onepage               # 早期 C61 板仍可构建
 ```
 
 Web 页面是生成产物 —— 编辑 `src/network/html/` 下的任何内容后：
@@ -298,7 +306,7 @@ git cherry-pick <commit>   # 挑选与板卡无关的阅读引擎修复
 ./bin/clang-format-fix                # 格式化代码树（clang-format 21）
 python3 scripts/sync_web_core.py --check   # 共享 Web CSS/JS 漂移门禁
 python3 scripts/build_html.py         # 重新生成内联的 Web 页面
-pio run -e onepage                    # C61 目标必须构建无警告错误
+pio run -e onepage_s3                 # S3 目标必须构建无警告错误
 ```
 
 ### 调试
@@ -333,13 +341,15 @@ Windows 上可能需要少量调整。
 | `src/` | 固件入口（`main.cpp`）、设置 / 状态存储、逻辑→物理按键映射、Web 服务器、OPDS 存储 |
 | `src/activities/` | 每个界面对应一个子包，由 Activity 生命周期驱动（`onEnter` → `loop` → `onExit`）；Activity 堆上分配、退出即删除 |
 | `lib/Epub`、`lib/GfxRenderer`、`lib/ZipFile`、`lib/InflateReader`、`lib/uzlib` | 阅读引擎：EPUB 解析、布局缓存、墨水屏渲染、归档 / 解压 |
+| `lib/ReadingHistory`、`src/activities/stats/` | 阅读记录：会话 JSONL、按年每日聚合（流式合并）、首页热力图、阅读统计页 |
+| `lib/ReadingPlan`、`src/activities/plan/` | 阅读计划与空余时段：plans.json / slots.json、列表与编辑页、本地阅读建议（纯公式） |
 | `lib/hal` | 硬件抽象 —— `HalDisplay` / `HalGPIO` / `HalStorage`；**所有** SD 访问都经由 `HalStorage`（SdFat 非线程安全） |
 | `lib/EpdFont`、`lib/I18n`、`lib/Logging`、`lib/Memory` | 字体、翻译、日志、分配辅助（`makeUniqueNoThrow`、PSRAM 分配器） |
 | `lib/VoiceRelay`、`lib/voice`、`lib/ChatLog`、`lib/Notes`、`lib/Markets`、`lib/NetBootstrap`、`lib/OpdsParser` | AI 与云服务客户端：VoiceRelay 语音 / 文本 / 图片协议、录音、聊天历史、书签、行情、网络与 OPDS 辅助 |
 | `lib/Pigeon`、`src/activities/pigeon/` | 飞鸽传书：relay HTTP 客户端、设备列表、会话界面、语音 / 键盘发送、按时间显示与双向清空 |
-| `open-onepage-sdk/` | 内嵌的 OnePage C61 板卡 SDK（EInkDisplay、InputManager、BatteryMonitor、SDCardManager）—— 非子模块，经 `platformio.ini` 的 `symlink://` 条目接入 |
-| `boards/`、`partitions.csv`、`sdkconfig.onepage` | C61 目标的 PlatformIO 板卡定义与 flash / PSRAM 配置 |
-| `scripts/` | 构建辅助 —— `build_html.py`、`sync_web_core.py`、`gen_i18n.py`、`debugging_monitor.py` |
+| `open-onepage-sdk/` | 内嵌的 OnePage 板卡 SDK（EInkDisplay、InputManager、BatteryMonitor、SDCardManager；C61 / S3 共用）—— 非子模块，经 `platformio.ini` 的 `symlink://` 条目接入 |
+| `boards/`、`partitions.csv`、`sdkconfig.onepage` | PlatformIO 板卡定义（`onepage-s3.json` / `onepage-c61.json`）与 flash / PSRAM 配置 |
+| `scripts/` | 构建辅助 —— `build_html.py`、`sync_web_core.py`、`gen_i18n.py`、`generate_mascot_icons.py`、`debugging_monitor.py`、真机截图 `device_test.py` |
 | `src/network/html/` | Web 界面源页面；`*.generated.h` 产物已 gitignore，每次构建重新生成 |
 | `relay/` | 自建 **VoiceRelay** FastAPI 服务器 —— 实时 ASR、流式 LLM、图片生成、行情上游、飞鸽传书消息存储（`relay/relay/`）、离线词典数据（`dict-data/`）、部署脚本与测试 |
 | `docs/` | 完整文档索引（[docs/README.md](./docs/README.md)） |
@@ -353,7 +363,7 @@ Windows 上可能需要少量调整。
 
 CrossPoint Reader 在把数据缓存到 SD 卡以最小化 RAM 占用方面非常彻底。ESP32-C3 只有约 380KB 可用 RAM，必须精打细算；固件设计中的许多决策都源于这一约束。
 
-**OnePage 说明：** C61 目标保持了这套 SD 优先设计，但本板还带来了四线 PSRAM（40 MHz，`CONFIG_SPIRAM=y`），因此少数大缓冲——例如语音助手的聊天缓冲——特意从 `MALLOC_CAP_SPIRAM` 分配。该构建上 `ESP.getPsramSize()` 汇报不准（`psramFound()` 返回 false 而 SPIRAM 堆实际在用），所以周期性的 `MEM` 日志行改用 `heap_caps_*`。
+**OnePage 说明：** 两代 OnePage 板都保持了这套 SD 优先设计，但带有 PSRAM，因此少数大缓冲——例如语音助手的聊天缓冲——特意从 `MALLOC_CAP_SPIRAM` 分配。在 C61 构建上 `ESP.getPsramSize()` 汇报不准（`psramFound()` 返回 false 而 SPIRAM 堆实际在用），所以周期性的 `MEM` 日志行改用 `heap_caps_*`。
 
 ### 数据缓存
 
@@ -371,6 +381,9 @@ CrossPoint Reader 在把数据缓存到 SD 卡以最小化 RAM 占用方面非�
 │       ├── 0.bin
 │       ├── 1.bin
 │       └── ...
+├── history/             # 阅读会话，每天一个 YYYY-MM-DD.jsonl
+├── aggregate/           # 按年聚合的每日汇总，YYYY.json
+├── plans/               # plans.json（阅读计划）、slots.json（空余时段）
 ├── settings.json        # 设备设置
 ├── state.json           # 恢复 / 运行时状态
 └── recent.json          # 最近阅读列表
