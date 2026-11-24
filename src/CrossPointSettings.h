@@ -318,6 +318,14 @@ class CrossPointSettings {
   // no speech ever opens on its own. When on, a manual forward turn on a
   // chapter's last page offers a one-line bar instead of immediately crossing.
   uint8_t chapterAiInvite = 0;
+  // AI-08.5 gentle reminder. Opt-in: when on, the sleep screen adds one line
+  // with the plan's remaining minutes. It is deliberately sleep-only — no
+  // bar, popup or sound ever appears while reading.
+  uint8_t planReminder = 0;
+  // Local day (epoch days, same scale as ReadingHistory) the user skipped the
+  // reminder for; 0 = never skipped. Only today's value suppresses the line,
+  // so the reminder returns by itself tomorrow.
+  uint32_t planReminderSkipDay = 0;
   // Quick Resume: keep current content visible with moon icon instead of showing a static sleep screen.
   uint8_t quickResumeSleepScreen = QUICK_RESUME_NEVER;
 

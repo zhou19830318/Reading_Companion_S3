@@ -17,6 +17,7 @@
 - [RP-01/02 阅读计划与空余时段任务记录](tasks/2026-11-23-reading-plan-rp01-rp02.md) — plans.json / slots.json、列表与编辑页、空余时段
 - [RP-03 本地阅读建议任务记录](tasks/2026-11-24-reading-plan-rp03.md) — 周目标 + 近 14 天均速 → 每日分钟与今日时段（离线、纯公式）
 - [AI 回复纯文本化任务记录](tasks/2026-11-24-ai-plain-text.md) — relay 回复就地剥离 Markdown 标记（零分配，覆盖回答/词典/书签/朗读）
+- [AI-08.5 温和提醒任务记录](tasks/2026-11-24-ai-gentle-reminder.md) — 睡眠页一行进度、阅读提醒开关、今日跳过（纯本地）
 - [UI 走查与优化（2026-11-23）](ui/2026-11-23-ui-audit.md) — 计划/统计/首页的焦点、空状态与文案修正；保留项说明
 - [voice-openclaw-port-plan.md](voice-openclaw-port-plan.md) — 语音移植方案（历史；OpenClaw 路径已移除，现全部走 voice relay）
 

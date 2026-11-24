@@ -219,6 +219,10 @@ inline std::vector<SettingInfo> getSettingsList(const SdCardFontRegistry* regist
         // turns straight into the next chapter (zero interruption).
         SettingInfo::Toggle(StrId::STR_AI_CHAPTER_INVITE_SETTING, &CrossPointSettings::chapterAiInvite,
                             "chapterAiInvite", StrId::STR_CAT_SYSTEM),
+        // AI-08.5: opt-in one-line plan progress on the sleep screen. Never
+        // interrupts reading, so it stays a plain toggle with no extra mode.
+        SettingInfo::Toggle(StrId::STR_PLAN_REMINDER, &CrossPointSettings::planReminder, "planReminder",
+                            StrId::STR_CAT_SYSTEM),
         // Master volume (0-100, step 10). Adjusted with Up/Down on the device
         // (see SettingsActivity::loop); Confirm cycles like other VALUE items.
         SettingInfo::Value(StrId::STR_VOLUME, &CrossPointSettings::volume, {0, 100, 10}, "volume",

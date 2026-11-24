@@ -5,11 +5,16 @@
 #include <GfxRenderer.h>
 #include <HalStorage.h>
 #include <I18n.h>
+#include <ReadingAdvice.h>
+#include <ReadingAggregate.h>
+#include <ReadingPlanStore.h>
+#include <ReadingReminder.h>
 #include <Txt.h>
 #include <Xtc.h>
 
 #include "CrossPointSettings.h"
 #include "CrossPointState.h"
+#include "activities/plan/PlanTime.h"
 #include "activities/reader/ReaderUtils.h"
 #include "components/UITheme.h"
 #include "fontIds.h"
@@ -157,6 +162,7 @@ void SleepActivity::renderDefaultSleepScreen() const {
   renderer.drawImage(Logo120, (pageWidth - 120) / 2, (pageHeight - 120) / 2, 120, 120);
   renderer.drawCenteredText(UI_10_FONT_ID, pageHeight / 2 + 70, tr(STR_CROSSPOINT), true, EpdFontFamily::BOLD);
   renderer.drawCenteredText(SMALL_FONT_ID, pageHeight / 2 + 95, tr(STR_SLEEPING));
+  drawPlanReminderLine();
 
   // Make sleep screen dark unless light is selected in settings
   if (SETTINGS.sleepScreen != CrossPointSettings::SLEEP_SCREEN_MODE::LIGHT) {
@@ -164,6 +170,69 @@ void SleepActivity::renderDefaultSleepScreen() const {
   }
 
   renderer.displayBuffer(HalDisplay::HALF_REFRESH);
+}
+
+void SleepActivity::drawPlanReminderLine() const {
+  if (SETTINGS.planReminder == 0) return;
+
+  int32_t todayDay = 0;
+  int weekday = -1;
+  if (!PlanTime::todayDayIndex(todayDay, weekday)) return;
+  if (SETTINGS.planReminderSkipDay == static_cast<uint32_t>(todayDay)) return;
+
+  // The store is normally already resident (the plan screens load it); load
+  // once on a cold boot that goes straight to sleep without visiting them.
+  if (!PLAN_STORE.loaded()) PLAN_STORE.load();
+  const auto& plans = PLAN_STORE.plans();
+  const ReadingPlan::Plan* plan = nullptr;
+  for (int i = 0; i < plans.count; ++i) {
+    if (plans.items[i].status == ReadingPlan::PlanStatus::Active) {
+      plan = &plans.items[i];
+      break;
+    }
+  }
+  if (plan == nullptr) return;
+
+  ReadingHistory::DayStat today{};
+  ReadingHistory::loadDayStats(todayDay, 1, &today, /*fallbackToHistory=*/true);
+  const uint32_t todaySec = today.present ? today.totalSec : 0;
+
+  // The 14-day window is only needed when a pages goal has to be converted
+  // through the measured pace; otherwise the weekly minutes answer alone.
+  ReadingPlan::PaceWindow window;
+  if (plan->weeklyPages > 0) {
+    ReadingHistory::DayStat stats[14];
+    ReadingHistory::loadDayStats(todayDay - 13, 14, stats, /*fallbackToHistory=*/true);
+    for (int i = 0; i < 14; ++i) {
+      if (!stats[i].present) continue;
+      window.totalSec += stats[i].totalSec;
+      window.pagesAdvanced += stats[i].pagesAdvanced;
+      ++window.daysWithData;
+    }
+  }
+
+  int32_t targetDay = 0;
+  const bool haveTarget = PlanTime::dayIndexFromDate(plan->targetDate, targetDay);
+  const ReadingPlan::Advice advice =
+      ReadingPlan::buildAdvice(*plan, PLAN_STORE.slots(), window, weekday, haveTarget ? targetDay : 0, todayDay);
+  const ReadingPlan::ReminderStatus status =
+      ReadingPlan::buildReminder(true, true, true, false, todaySec, advice.dailyMinutes);
+  if (status.kind == ReadingPlan::ReminderStatus::Kind::Hidden) return;
+
+  char line[96];
+  if (status.kind == ReadingPlan::ReminderStatus::Kind::Done) {
+    snprintf(line, sizeof(line), tr(STR_PLAN_REMINDER_DONE), static_cast<unsigned>(todaySec / 60u));
+  } else if (advice.segmentCount > 0) {
+    char start[8];
+    char end[8];
+    ReadingPlan::formatHhMm(start, sizeof(start), advice.segments[0].startMin);
+    ReadingPlan::formatHhMm(end, sizeof(end), advice.segments[0].endMin);
+    snprintf(line, sizeof(line), tr(STR_PLAN_REMINDER_SLOT), static_cast<unsigned>(status.remainingMinutes), start,
+             end);
+  } else {
+    snprintf(line, sizeof(line), tr(STR_PLAN_REMINDER_REMAIN), static_cast<unsigned>(status.remainingMinutes));
+  }
+  renderer.drawCenteredText(SMALL_FONT_ID, renderer.getScreenHeight() - 44, line, true);
 }
 
 void SleepActivity::renderBitmapSleepScreen(const Bitmap& bitmap) const {

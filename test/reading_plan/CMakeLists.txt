@@ -30,3 +30,19 @@ target_link_libraries(ReadingAdviceTest PRIVATE
 )
 
 gtest_discover_tests(ReadingAdviceTest)
+
+add_executable(ReadingReminderTest
+  ReadingReminderTest.cpp
+  ${REPO_ROOT}/lib/ReadingPlan/ReadingReminder.cpp
+)
+
+target_include_directories(ReadingReminderTest PRIVATE
+  ${REPO_ROOT}/lib/ReadingPlan
+)
+
+target_link_libraries(ReadingReminderTest PRIVATE
+  crosspoint_test_common
+  GTest::gtest_main
+)
+
+gtest_discover_tests(ReadingReminderTest)

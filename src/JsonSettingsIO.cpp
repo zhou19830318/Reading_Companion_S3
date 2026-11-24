@@ -154,6 +154,8 @@ bool JsonSettingsIO::saveSettings(const CrossPointSettings& s, const char* path)
 
   // One-time tz default migration marker (plan D5) — managed by loadSettings, not SettingsList.
   doc["tzDefaultMigrated"] = s.tzDefaultMigrated;
+  // AI-08.5 "skip today" day index — toggled from the plan list, not SettingsList.
+  doc["planReminderSkipDay"] = s.planReminderSkipDay;
 
 #if defined(ONEPAGE_C61) || defined(ONEPAGE_S3)
   // Voice send mode — managed on the voice screen itself, not in SettingsList.
@@ -302,6 +304,11 @@ bool JsonSettingsIO::loadSettings(CrossPointSettings& s, const char* json, bool*
   if (doc["language"].is<const char*>()) {
     s.language = static_cast<uint8_t>(I18n::languageFromCode(doc["language"].as<const char*>()));
   }
+
+  // AI-08.5 skip day. A missing key means "never skipped"; clamp to a plausible
+  // epoch-day range so a corrupt value cannot hide the reminder forever.
+  s.planReminderSkipDay = doc["planReminderSkipDay"] | (uint32_t)0;
+  if (s.planReminderSkipDay > 100000u) s.planReminderSkipDay = 0;
 
 #if defined(ONEPAGE_C61) || defined(ONEPAGE_S3)
   // Voice send mode (0 = manual, 1 = auto).

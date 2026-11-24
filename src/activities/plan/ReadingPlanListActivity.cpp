@@ -8,8 +8,10 @@
 #include <memory>
 #include <string>
 
+#include "CrossPointSettings.h"
 #include "FreeTimeListActivity.h"
 #include "MappedInputManager.h"
+#include "PlanTime.h"
 #include "ReadingPlanEditActivity.h"
 #include "ReadingPlanStore.h"
 #include "components/UITheme.h"
@@ -39,6 +41,17 @@ std::string bookName(const char* path) {
   return std::string(name);
 }
 
+// AI-08.5: the skip row only exists while the reminder is enabled. The skip
+// itself is a local day index in settings, so it lapses by itself tomorrow.
+bool reminderRowVisible() { return SETTINGS.planReminder != 0; }
+
+bool reminderSkippedToday() {
+  int32_t todayDay = 0;
+  int weekday = -1;
+  if (!PlanTime::todayDayIndex(todayDay, weekday)) return false;
+  return SETTINGS.planReminderSkipDay == static_cast<uint32_t>(todayDay);
+}
+
 std::string planSubtitle(const ReadingPlan::Plan& plan) {
   char buf[64];
   if (plan.targetDate[0] != '\0') {
@@ -53,7 +66,7 @@ std::string planSubtitle(const ReadingPlan::Plan& plan) {
 
 }  // namespace
 
-int ReadingPlanListActivity::itemCount() const { return PLAN_STORE.plans().count + 2; }
+int ReadingPlanListActivity::itemCount() const { return PLAN_STORE.plans().count + 2 + (reminderRowVisible() ? 1 : 0); }
 
 void ReadingPlanListActivity::onEnter() {
   Activity::onEnter();
@@ -96,8 +109,23 @@ void ReadingPlanListActivity::handleSelection() {
     startActivityForResult(std::make_unique<ReadingPlanEditActivity>(renderer, mappedInput, selectedIndex), reload);
   } else if (selectedIndex == planCount) {
     startActivityForResult(std::make_unique<ReadingPlanEditActivity>(renderer, mappedInput, -1), reload);
-  } else {
+  } else if (selectedIndex == planCount + 1) {
     startActivityForResult(std::make_unique<FreeTimeListActivity>(renderer, mappedInput), reload);
+  } else if (reminderRowVisible()) {
+    int32_t todayDay = 0;
+    int weekday = -1;
+    if (!PlanTime::todayDayIndex(todayDay, weekday)) {
+      // Without a sane clock there is no day to skip; leave settings alone.
+      requestUpdate();
+      return;
+    }
+    const uint32_t day = static_cast<uint32_t>(todayDay);
+    const uint32_t next = SETTINGS.planReminderSkipDay == day ? 0u : day;
+    if (next != SETTINGS.planReminderSkipDay) {
+      SETTINGS.planReminderSkipDay = next;
+      SETTINGS.saveToFile();
+    }
+    requestUpdate();
   }
 }
 
@@ -118,20 +146,27 @@ void ReadingPlanListActivity::render(RenderLock&&) {
 
   const int contentHeight = pageHeight - contentTop - metrics.buttonHintsHeight - metrics.verticalSpacing * 2;
   const int count = itemCount();
+  const bool skipped = reminderSkippedToday();
+  const StrId skipLabel = skipped ? StrId::STR_PLAN_RESUME_TODAY : StrId::STR_PLAN_SKIP_TODAY;
+  const StrId skipHint = skipped ? StrId::STR_PLAN_RESUME_TODAY_HINT : StrId::STR_PLAN_SKIP_TODAY_HINT;
 
   GUI.drawList(
       renderer, Rect{0, contentTop, pageWidth, contentHeight}, count, selectedIndex,
-      [planCount](int index) -> std::string {
+      [planCount, skipLabel](int index) -> std::string {
         if (index < planCount) return bookName(PLAN_STORE.plans().items[index].bookId);
         // The primary action comes before the secondary one even when the list
         // is empty, so the first row is never "Free Time" by default.
-        return index == planCount ? std::string(tr(STR_NEW_PLAN)) : std::string(tr(STR_FREE_TIME));
+        if (index == planCount) return std::string(tr(STR_NEW_PLAN));
+        if (index == planCount + 1) return std::string(tr(STR_FREE_TIME));
+        return std::string(I18N.get(skipLabel));
       },
-      [planCount](int index) -> std::string {
+      [planCount, skipHint](int index) -> std::string {
         // Action rows also get a second line: the list uses one row height for
         // every entry, and an empty half-row would read as a rendering gap.
         if (index < planCount) return planSubtitle(PLAN_STORE.plans().items[index]);
-        return index == planCount ? std::string(tr(STR_NEW_PLAN_HINT)) : std::string(tr(STR_FREE_TIME_HINT));
+        if (index == planCount) return std::string(tr(STR_NEW_PLAN_HINT));
+        if (index == planCount + 1) return std::string(tr(STR_FREE_TIME_HINT));
+        return std::string(I18N.get(skipHint));
       },
       nullptr,
       [planCount](int index) -> std::string {

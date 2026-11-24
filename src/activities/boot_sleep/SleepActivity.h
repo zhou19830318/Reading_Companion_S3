@@ -11,6 +11,10 @@ class SleepActivity final : public Activity {
 
  private:
   void renderDefaultSleepScreen() const;
+  // AI-08.5: one gentle line at the bottom of the default sleep screen. Reads
+  // the plan store and (only when a pages goal needs it) the 14-day aggregate;
+  // silent when the reminder is off, skipped for today, or no plan is active.
+  void drawPlanReminderLine() const;
   void renderCustomSleepScreen() const;
   void renderCoverSleepScreen() const;
   void renderBitmapSleepScreen(const Bitmap& bitmap) const;
