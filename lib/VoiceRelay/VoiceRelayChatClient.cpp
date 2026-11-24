@@ -4,6 +4,7 @@
 #include <Arduino.h>
 #include <Logging.h>
 #include <NetBootstrap.h>
+#include <PlainText.h>
 #include <WiFi.h>
 #include <esp_crt_bundle.h>
 #include <esp_heap_caps.h>
@@ -214,6 +215,16 @@ ChatClient::Result ChatClient::ask(const char* url, const char* token, const cha
     return Result::NoText;
   }
   truncated = truncated || parseTruncated;
+  // The relay returns the LLM's Markdown verbatim; strip the inline markers
+  // here so every consumer (answer view, chat log/bookmark, TTS) and the
+  // stored note see plain text. In place, no allocation: chat buffers are
+  // tight and this runs right after the TLS teardown.
+  const size_t rawLen = strlen(reply);
+  const size_t plainLen = PlainText::stripMarkdown(reply, rawLen);
+  if (plainLen != rawLen) {
+    LOG_INF("VCHAT", "markdown stripped: %u -> %u bytes", static_cast<unsigned>(rawLen),
+            static_cast<unsigned>(plainLen));
+  }
   const size_t strokeBytes = strokesOut != nullptr ? strlen(strokesOut) : 0;
   LOG_INF("VCHAT", "reply %u bytes, strokes %u bytes%s", static_cast<unsigned>(strlen(reply)),
           static_cast<unsigned>(strokeBytes), truncated ? " (truncated)" : "");
