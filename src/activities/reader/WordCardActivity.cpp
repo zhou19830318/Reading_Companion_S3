@@ -20,6 +20,7 @@
 #include "ReviewStore.h"
 #include "WordBook.h"
 #include "activities/network/WifiSelectionActivity.h"
+#include "components/CompanionMascot.h"
 #include "components/UITheme.h"
 #include "fontIds.h"
 
@@ -379,18 +380,23 @@ void WordCardActivity::render(RenderLock&&) {
 
   if (state_ == State::Loading) {
     drawHero();
+    const int msgY = contentTop + lineH + RULE_GAP * 2;
     const int msgW = renderer.getTextWidth(bodyFont, tr(STR_WORD_LOOKING));
-    renderer.drawText(bodyFont, left + (textWidth - msgW) / 2, contentTop + lineH + RULE_GAP * 2, tr(STR_WORD_LOOKING),
-                      true);
+    renderer.drawText(bodyFont, left + (textWidth - msgW) / 2, msgY, tr(STR_WORD_LOOKING), true);
+    CompanionMascot::drawBlock(renderer, left, msgY + lineH, textWidth, contentBottom - msgY - lineH,
+                               CompanionMascot::Pose::Lookup, nullptr);
   } else if (state_ == State::Failed) {
     drawHero();
     const int bodyTop = contentTop + lineH + RULE_GAP + 6;
     const int failW = renderer.getTextWidth(bodyFont, tr(STR_WORD_FAILED));
     renderer.drawText(bodyFont, left + (textWidth - failW) / 2, bodyTop, tr(STR_WORD_FAILED), true);
+    const int detailH = failText_ != nullptr ? lineH + 6 : 0;
     if (failText_ != nullptr) {
       const int detailW = renderer.getTextWidth(bodyFont, failText_);
       renderer.drawText(bodyFont, left + (textWidth - detailW) / 2, bodyTop + lineH + 6, failText_, true);
     }
+    CompanionMascot::drawBlock(renderer, left, bodyTop + lineH + detailH, textWidth,
+                               contentBottom - bodyTop - lineH - detailH, CompanionMascot::Pose::Sad, nullptr);
   } else {
     // Build before the hero draw so a returned 【词】 (canonical form) shows on
     // the first Card frame.

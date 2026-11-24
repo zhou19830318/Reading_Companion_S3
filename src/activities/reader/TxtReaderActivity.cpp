@@ -1,10 +1,12 @@
 #include "TxtReaderActivity.h"
 
 #include <BidiUtils.h>
+#include <ChatTime.h>
 #include <FontCacheManager.h>
 #include <GfxRenderer.h>
 #include <HalStorage.h>
 #include <I18n.h>
+#include <ReadingSessionLog.h>
 #include <Serialization.h>
 #include <Utf8.h>
 
@@ -30,6 +32,8 @@ constexpr uint8_t CACHE_VERSION = 3;          // Increment when cache format cha
 constexpr uint32_t TXT_INDEX_PROGRESS_MIN_MS = 4000;
 constexpr uint32_t TXT_INDEX_PROGRESS_MAX_MS = 8000;
 constexpr uint32_t TXT_INDEX_PROGRESS_STEP = 5;
+
+int64_t readingSessionNowSec() { return ChatLog::nowEpochMs() / 1000; }
 }  // namespace
 
 void TxtReaderActivity::onEnter() {
@@ -55,6 +59,9 @@ void TxtReaderActivity::onEnter() {
 }
 
 void TxtReaderActivity::onExit() {
+  // RH-01: close the reading session while txt (the book path) is still alive.
+  finishReadingSession();
+
   Activity::onExit();
 
   // Reset orientation back to portrait for the rest of the UI
@@ -67,7 +74,47 @@ void TxtReaderActivity::onExit() {
   txt.reset();
 }
 
+void TxtReaderActivity::onPause() {
+  // A pushed activity hides the page; its time is not reading time. The first
+  // loop after returning starts a fresh session (only if one was running, so
+  // pausing during page-index construction does not fabricate a session).
+  const bool wasActive = readingSession_.active();
+  finishReadingSession();
+  readingSessionPaused_ = wasActive;
+}
+
+void TxtReaderActivity::startReadingSession(const int64_t nowSec) {
+  if (!txt) return;
+  readingSessionPaused_ = false;
+  readingSession_.start(nowSec);
+}
+
+void TxtReaderActivity::flushReadingSession(const ReadingHistory::SessionRecord& record) {
+  if (!txt) return;
+  ReadingHistory::appendSession(record, txt->getPath().c_str(), 0, currentPage, SETTINGS.clockUtcOffsetQ);
+}
+
+void TxtReaderActivity::tickReadingSession(const int64_t nowSec) {
+  ReadingHistory::SessionRecord record;
+  if (readingSession_.tick(nowSec, record)) flushReadingSession(record);
+}
+
+void TxtReaderActivity::finishReadingSession() {
+  ReadingHistory::SessionRecord record;
+  if (readingSession_.finish(readingSessionNowSec(), record)) flushReadingSession(record);
+  readingSessionPaused_ = false;
+}
+
 void TxtReaderActivity::loop() {
+  // RH-01: keep the reading session alive on input and close it after the
+  // idle timeout. The session starts only once initializeReader() has loaded
+  // the real page, so index-building time is not counted as reading.
+  const int64_t nowSec = readingSessionNowSec();
+  const bool startPending = readingSessionStartPending_.exchange(false);
+  if (startPending || readingSessionPaused_) startReadingSession(nowSec);
+  if (mappedInput.wasAnyPressed() || mappedInput.wasAnyReleased()) readingSession_.noteActivity(nowSec);
+  tickReadingSession(nowSec);
+
   // Long press BACK (1s+) goes to file selection
   if (mappedInput.isPressed(MappedInputManager::Button::Back) && mappedInput.getHeldTime() >= ReaderUtils::GO_HOME_MS) {
     activityManager.goToFileBrowser(txt ? txt->getPath() : "");
@@ -93,6 +140,7 @@ void TxtReaderActivity::loop() {
   } else if (nextTriggered) {
     if (currentPage < totalPages - 1) {
       currentPage++;
+      readingSession_.notePageAdvance(nowSec);
       UiSound::pageTurn();
       requestUpdate();
     } else {
@@ -139,6 +187,10 @@ void TxtReaderActivity::initializeReader() {
 
   // Load saved progress
   loadProgress();
+
+  // RH-01: the first page is ready; let the main loop start the session with
+  // the restored page as the baseline.
+  readingSessionStartPending_.store(true);
 
   initialized = true;
 }

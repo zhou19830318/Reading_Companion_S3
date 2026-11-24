@@ -34,6 +34,7 @@ class HalClock {
     uint8_t day = 0;
     uint8_t hour = 0;
     uint8_t minute = 0;
+    uint8_t second = 0;
     uint8_t weekday = 0;
     bool valid = false;
   };
@@ -72,8 +73,15 @@ class HalClock {
 
   // Set the clock from a caller-supplied date and time (manual time setting, or
   // a sync source other than NTP). year/month/day must be a real date.
+  // On success the RTC is written and the system clock (time()/gettimeofday())
+  // is seeded from it, so offline code that reads time() agrees with the panel.
   // Returns false when no RTC is fitted or the I2C write fails.
   bool setDateTime(uint16_t year, uint8_t month, uint8_t day, uint8_t hour, uint8_t minute, uint8_t second = 0);
+
+  // Seed the system clock (time()/gettimeofday()) from the RTC. The RTC is kept
+  // in UTC, matching SNTP's configTzTime("UTC0"). Returns false when no RTC is
+  // fitted, its VL bit says the time is untrustworthy, or settimeofday fails.
+  bool seedSystemTimeFromRTC();
 
  private:
   // Writes time and (when known) the calendar date in one burst. year == 0

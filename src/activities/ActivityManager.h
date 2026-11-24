@@ -25,6 +25,8 @@ enum class HomeMenuItem {
   OPDS_BROWSER,
   REVIEW,
   CALENDAR,
+  STATS,
+  PLAN,
   MARKETS,
   VOICE,
   FILE_TRANSFER,
@@ -104,6 +106,8 @@ class ActivityManager {
   void goToReview();
   void goToMarkets();
   void goToCalendar();
+  void goToStats();
+  void goToPlans();
   void goToVoice();
   void goToAiAssistant();
   void goToPigeon();

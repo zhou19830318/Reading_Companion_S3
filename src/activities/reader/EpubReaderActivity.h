@@ -2,6 +2,7 @@
 #include <Epub.h>
 #include <Epub/FootnoteEntry.h>
 #include <Epub/Section.h>
+#include <ReadingSessionTracker.h>
 
 #include <atomic>
 #include <optional>
@@ -210,6 +211,14 @@ class EpubReaderActivity final : public Activity {
   void flushBookmarks();
   void updateBookmarkFlag();
   uint16_t progressSeq_ = 0;  // dual-slot write counter (FR-01), seeded in onEnter()
+
+  // RH-01: reading session tracking (idle timeout + forward page count).
+  ReadingHistory::SessionTracker readingSession_;
+  bool readingSessionPaused_ = false;
+  void startReadingSession(int64_t nowSec);
+  void flushReadingSession(const ReadingHistory::SessionRecord& record);
+  void finishReadingSession();
+  void tickReadingSession(int64_t nowSec);
 
   // Footnote navigation
   void navigateToHref(const std::string& href, bool savePosition = false);

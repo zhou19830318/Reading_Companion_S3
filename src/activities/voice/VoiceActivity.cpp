@@ -33,6 +33,7 @@ namespace ChatHistoryFormat = ChatLog::ChatHistoryFormat;
 
 #include "activities/network/WifiSelectionActivity.h"
 #include "activities/util/KeyboardEntryActivity.h"
+#include "components/CompanionMascot.h"
 #include "components/CompanionUi.h"
 #include "components/UITheme.h"
 #include "components/icons/voice.h"
@@ -1846,7 +1847,12 @@ void VoiceActivity::render(RenderLock&&) {
       for (const auto& line : renderer.wrappedText(UI_10_FONT_ID, buf, textWidth, 2)) {
         renderer.drawText(UI_10_FONT_ID, left, y, line.c_str());
         y += lineHeight;
-      }
+      }  // The idle panel is otherwise one paragraph over a blank page: the buddy
+      // sits right under it, ready to listen. drawCentered() refuses to paint
+      // when the art would run past the panel, so short landscape screens keep
+      // the hint bar clear instead of getting an overlapping mascot.
+      CompanionMascot::drawCentered(renderer, left, textWidth, y + metrics.verticalSpacing * 2,
+                                    CompanionMascot::Pose::Listen);
       break;
     }
 

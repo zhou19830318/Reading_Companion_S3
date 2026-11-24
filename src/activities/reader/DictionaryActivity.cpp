@@ -17,6 +17,7 @@
 #include "CrossPointSettings.h"
 #include "MappedInputManager.h"
 #include "activities/network/WifiSelectionActivity.h"
+#include "components/CompanionMascot.h"
 #include "components/CompanionUi.h"
 #include "components/UITheme.h"
 #include "fontIds.h"
@@ -430,7 +431,10 @@ void DictionaryActivity::render(RenderLock&&) {
     // Painted once before the blocking relay round; the panel holds it.
     const char* line = tr(STR_DICT_LOOKING);
     const int msgW = renderer.getTextWidth(bodyFont, line);
-    renderer.drawText(bodyFont, left + (textWidth - msgW) / 2, contentTop + heroPlateH + RULE_GAP * 2, line, true);
+    const int msgY = contentTop + heroPlateH + RULE_GAP * 2;
+    renderer.drawText(bodyFont, left + (textWidth - msgW) / 2, msgY, line, true);
+    CompanionMascot::drawBlock(renderer, left, msgY + bodyLineH, textWidth, contentBottom - msgY - bodyLineH,
+                               CompanionMascot::Pose::Lookup, nullptr);
   } else {
     drawHero();
     const int bodyTop = contentTop + heroPlateH + 12;
@@ -447,6 +451,9 @@ void DictionaryActivity::render(RenderLock&&) {
         const int detailW = renderer.getTextWidth(bodyFont, failText_);
         renderer.drawText(bodyFont, left + (textWidth - detailW) / 2, bodyTop + 8 + bodyLineH, failText_, true);
       }
+      CompanionMascot::drawBlock(renderer, left, bodyTop + calloutH + metrics.verticalSpacing, textWidth,
+                                 contentBottom - bodyTop - calloutH - metrics.verticalSpacing,
+                                 CompanionMascot::Pose::Sad, nullptr);
     } else {
       // Card body stays clear of the right-hand side-button hints; the hero
       // plate above can use the full measure because those hints start lower.

@@ -23,9 +23,11 @@
 #include "markets/MarketActivity.h"
 #include "network/CrossPointWebServerActivity.h"
 #include "pigeon/PigeonDeviceListActivity.h"
+#include "plan/ReadingPlanListActivity.h"
 #include "reader/ReaderActivity.h"
 #include "settings/OpdsServerListActivity.h"
 #include "settings/SettingsActivity.h"
+#include "stats/ReadingStatsActivity.h"
 #include "util/FullScreenMessageActivity.h"
 #include "voice/VoiceActivity.h"
 
@@ -265,6 +267,24 @@ void ActivityManager::goToCalendar() {
   replaceActivity(std::move(activity));
 }
 
+void ActivityManager::goToStats() {
+  auto activity = makeUniqueNoThrow<ReadingStatsActivity>(renderer, mappedInput);
+  if (!activity) {
+    LOG_ERR("STATS", "OOM: activity");
+    return;
+  }
+  replaceActivity(std::move(activity));
+}
+
+void ActivityManager::goToPlans() {
+  auto activity = makeUniqueNoThrow<ReadingPlanListActivity>(renderer, mappedInput);
+  if (!activity) {
+    LOG_ERR("PLAN", "OOM: activity");
+    return;
+  }
+  replaceActivity(std::move(activity));
+}
+
 void ActivityManager::goToMarkets() {
   auto activity = makeUniqueNoThrow<MarketActivity>(renderer, mappedInput);
   if (!activity) {
@@ -316,6 +336,11 @@ void ActivityManager::goHome(HomeMenuItem initialMenuItem, bool inheritCurrentTi
       initialMenuItem = HomeMenuItem::FILE_TRANSFER;
     } else if (activityName == "Review") {
       initialMenuItem = HomeMenuItem::REVIEW;
+    } else if (activityName == "ReadingStats") {
+      initialMenuItem = HomeMenuItem::STATS;
+    } else if (activityName == "ReadingPlans" || activityName == "ReadingPlanEdit" || activityName == "FreeTimeList" ||
+               activityName == "FreeTimeEdit") {
+      initialMenuItem = HomeMenuItem::PLAN;
     } else if (activityName == "Markets") {
       initialMenuItem = HomeMenuItem::MARKETS;
     } else if (activityName == "Voice") {

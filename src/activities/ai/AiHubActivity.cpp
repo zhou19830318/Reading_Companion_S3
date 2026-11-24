@@ -3,10 +3,12 @@
 #include <I18n.h>
 #include <Logging.h>
 
+#include <algorithm>
 #include <memory>
 
 #include "activities/ai/AiImageActivity.h"
 #include "activities/voice/VoiceActivity.h"
+#include "components/CompanionMascot.h"
 #include "components/UITheme.h"
 #include "fontIds.h"
 
@@ -60,9 +62,21 @@ void AiHubActivity::render(RenderLock&&) {
   const int contentTop = screen.y + metrics.topPadding + metrics.headerHeight + metrics.verticalSpacing;
   const int contentHeight = screen.height - contentTop - metrics.verticalSpacing;
 
+  // Two rows under a tall hero would leave most of the panel blank, so the
+  // buddy and the chooser are centred as one group. On a short landscape panel
+  // the mascot is skipped and the list keeps the full height.
+  const int captionH = renderer.getLineHeight(UI_10_FONT_ID) + 8;
+  const int heroH = CompanionMascot::SIZE + captionH;
+  const int listH = ROW_COUNT * metrics.listRowHeight;
+  const int groupH = heroH + metrics.verticalSpacing * 2 + listH;
+  const int groupTop = contentTop + std::max(0, (contentHeight - groupH) / 2);
+  const int heroUsed = CompanionMascot::drawBlock(renderer, screen.x, groupTop, screen.width, heroH,
+                                                  CompanionMascot::Pose::Read, tr(STR_AI_HUB_TAGLINE));
+  const int listTop = groupTop + (heroUsed > 0 ? heroUsed + metrics.verticalSpacing * 2 : 0);
+
   static constexpr StrId rowLabels[ROW_COUNT] = {StrId::STR_AI_CHAT, StrId::STR_AI_IMAGE};
   GUI.drawList(
-      renderer, Rect{screen.x, contentTop, screen.width, contentHeight}, ROW_COUNT, selectedIndex,
+      renderer, Rect{screen.x, listTop, screen.width, listH}, ROW_COUNT, selectedIndex,
       [](int index) { return I18N.get(rowLabels[index]); }, nullptr,
       [](int index) { return index == 0 ? Mic : Image; });
 

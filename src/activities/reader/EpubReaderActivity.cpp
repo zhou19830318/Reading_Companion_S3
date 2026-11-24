@@ -1,5 +1,6 @@
 #include "EpubReaderActivity.h"
 
+#include <ChatTime.h>
 #include <CloudConfig.h>
 #include <Epub/Page.h>
 #include <Epub/blocks/TextBlock.h>
@@ -11,6 +12,7 @@
 #include <JsonSettingsIO.h>
 #include <Logging.h>
 #include <Memory.h>
+#include <ReadingSessionLog.h>
 #include <TtsPlayer.h>
 #include <Utf8.h>
 #include <WiFi.h>
@@ -67,6 +69,8 @@ constexpr float bookmarkProgressEpsilon = 0.0001f;
 // Bookmark-file writes are batched: at least this long after the last toggle,
 // and only when the render task is quiet (see the loop() flush).
 constexpr unsigned long BOOKMARK_SAVE_IDLE_MS = 2000UL;
+
+int64_t readingSessionNowSec() { return ChatLog::nowEpochMs() / 1000; }
 
 uint32_t firstCodepointOf(const std::string& text) {
   const auto* p = reinterpret_cast<const unsigned char*>(text.c_str());
@@ -377,14 +381,48 @@ void EpubReaderActivity::onEnter() {
 
   loadCachedBookmarks();
 
+  // RH-01: start a reading session. The tracker stays inactive while the clock
+  // is unsynced; the first forward page turn after an NTP sync starts it.
+  startReadingSession(readingSessionNowSec());
+
   // Trigger first update
   requestUpdate();
+}
+
+void EpubReaderActivity::startReadingSession(const int64_t nowSec) {
+  if (!epub) return;
+  readingSessionPaused_ = false;
+  readingSession_.start(nowSec);
+}
+
+void EpubReaderActivity::flushReadingSession(const ReadingHistory::SessionRecord& record) {
+  if (!epub) return;
+  // section->currentPage is owned by the render task, but the reader loop
+  // already reads it for menus/bookmarks; at an input boundary the page on the
+  // panel is settled.
+  const int page = section ? section->currentPage : nextPageNumber;
+  ReadingHistory::appendSession(record, epub->getPath().c_str(), currentSpineIndex, page, SETTINGS.clockUtcOffsetQ);
+}
+
+void EpubReaderActivity::tickReadingSession(const int64_t nowSec) {
+  ReadingHistory::SessionRecord record;
+  if (readingSession_.tick(nowSec, record)) flushReadingSession(record);
+}
+
+void EpubReaderActivity::finishReadingSession() {
+  ReadingHistory::SessionRecord record;
+  if (readingSession_.finish(readingSessionNowSec(), record)) flushReadingSession(record);
+  readingSessionPaused_ = false;
 }
 
 void EpubReaderActivity::onExit() {
   // Stop and join the TTS worker before the section/book state it reads goes
   // away. The worker also holds the Wi-Fi idle hold, so release it first.
   stopReadAloud(false);
+
+  // RH-01: flush the reading session (best effort). onPause() may already have
+  // closed it; finish() is a no-op then, so a push+pop never double-writes.
+  finishReadingSession();
 
   Activity::onExit();
 
@@ -446,6 +484,12 @@ void EpubReaderActivity::onPause() {
   // sleep can tear down the stack from there without this activity's onExit():
   // land any deferred toggle write before yielding the screen.
   flushBookmarks();
+
+  // RH-01: the time spent in a menu/AI/voice screen is not reading time, so
+  // close the session now. The first loop after returning starts a new one.
+  const bool wasActive = readingSession_.active();
+  finishReadingSession();
+  readingSessionPaused_ = wasActive;
 }
 
 bool EpubReaderActivity::preventAutoSleep() {
@@ -1175,6 +1219,17 @@ void EpubReaderActivity::loop() {
     return;
   }
 
+  // RH-01: keep the reading session alive on input and close it after the
+  // idle timeout. onPause() closes it while a menu/AI screen is on top; the
+  // first loop after returning opens a fresh one.
+  const int64_t nowSec = readingSessionNowSec();
+  if (readingSessionPaused_) startReadingSession(nowSec);
+  if (mappedInput.wasAnyPressed() || mappedInput.wasAnyReleased()) readingSession_.noteActivity(nowSec);
+  // Listening is reading too: TTS can speak one page for minutes with no
+  // input, which would otherwise hit the 90 s idle close mid-page.
+  if (readAloudActive_.load(std::memory_order_relaxed)) readingSession_.noteActivity(nowSec);
+  tickReadingSession(nowSec);
+
   // Read-aloud drives its own page turns between TTS streams. When it performs
   // one, consume this frame: the button state that follows belongs to the page
   // turn, not to a second action on the same edge.
@@ -1491,6 +1546,7 @@ void EpubReaderActivity::loop() {
     // the render task was busy with an on-demand section build.
     if (nextTriggered) {
       pendingSpineDelta.fetch_add(1, std::memory_order_relaxed);
+      readingSession_.notePageAdvance(readingSessionNowSec());
     } else if (currentSpineIndex > 0) {
       pendingSpineDelta.fetch_sub(1, std::memory_order_relaxed);
     }
@@ -1801,6 +1857,9 @@ bool EpubReaderActivity::launchKOReaderSync() {
   LOG_DBG("KOSync", "Releasing epub for sync (heap before: %u)", (unsigned)ESP.getFreeHeap());
   {
     RenderLock lock(*this);
+    // RH-01: this path drops epub before the activity manager runs onExit(),
+    // so close the session here while the book path and page are still valid.
+    finishReadingSession();
     if (section) {
       nextPageNumber = section->currentPage;
     }
@@ -1958,6 +2017,11 @@ void EpubReaderActivity::clearPendingSpineCrossing() {
 void EpubReaderActivity::continuePastChapterInvite() {
   chapterInvitePending_ = false;
   UiSound::pageTurn(true);
+  // The invite bar is only offered when a next spine exists, so this forward
+  // press is a real page advance across the chapter boundary. The normal
+  // pageTurn() path counts it; this bypass path must do the same or a reader
+  // who dismisses the invite loses that page from the session total.
+  readingSession_.notePageAdvance(readingSessionNowSec());
   pendingSpineDelta.fetch_add(1, std::memory_order_relaxed);
   lastPageTurnTime = millis();
   requestUpdate();
@@ -2000,6 +2064,7 @@ void EpubReaderActivity::pageTurn(bool isForwardTurn) {
   if (isForwardTurn) {
     if (section->currentPage < section->pageCount - 1) {
       section->currentPage++;
+      readingSession_.notePageAdvance(readingSessionNowSec());
     } else if (SETTINGS.chapterAiInvite && !automaticPageTurnActive &&
                !readAloudActive_.load(std::memory_order_relaxed) && chapterInviteSpine_ != currentSpineIndex &&
                currentSpineIndex + 1 < epub->getSpineItemsCount()) {
@@ -2012,6 +2077,7 @@ void EpubReaderActivity::pageTurn(bool isForwardTurn) {
     } else {
       if (currentSpineIndex + 1 < epub->getSpineItemsCount()) {
         LOG_INF("ERS", "chapter_completed spine=%d", currentSpineIndex);
+        readingSession_.notePageAdvance(readingSessionNowSec());
       }
       // Crossing forward: queue the spine move for the render task instead of
       // taking RenderLock here — the input loop must stay responsive while the

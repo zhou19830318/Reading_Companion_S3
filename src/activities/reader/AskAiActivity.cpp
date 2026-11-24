@@ -32,6 +32,7 @@
 #include "activities/ActivityResult.h"
 #include "activities/network/WifiSelectionActivity.h"
 #include "activities/voice/VoiceActivity.h"
+#include "components/CompanionMascot.h"
 #include "components/CompanionUi.h"
 #include "components/UITheme.h"
 #include "fontIds.h"
@@ -1451,6 +1452,13 @@ void AskAiActivity::render(RenderLock&&) {
         renderer.drawText(UI_10_FONT_ID, left, y, line.c_str());
         y += lineHeight;
       }
+      // The blocking relay call owns the panel until the reply settles; the
+      // buddy over the empty half reads as "thinking", so the wait does not
+      // look like a stalled screen.
+      CompanionMascot::drawBlock(
+          renderer, left, y + metrics.verticalSpacing, textWidth,
+          pageHeight - metrics.buttonHintsHeight - metrics.verticalSpacing - y - metrics.verticalSpacing,
+          CompanionMascot::Pose::Think, nullptr);
       break;
     }
 
@@ -1589,6 +1597,10 @@ void AskAiActivity::render(RenderLock&&) {
         renderer.drawText(UI_10_FONT_ID, left, y, line.c_str());
         y += lineHeight;
       }
+      CompanionMascot::drawBlock(
+          renderer, left, y + metrics.verticalSpacing, textWidth,
+          pageHeight - metrics.buttonHintsHeight - metrics.verticalSpacing - y - metrics.verticalSpacing,
+          CompanionMascot::Pose::Sad, nullptr);
       break;
     }
   }

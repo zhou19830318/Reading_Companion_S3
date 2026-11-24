@@ -1,7 +1,9 @@
 #pragma once
 
+#include <ReadingSessionTracker.h>
 #include <Txt.h>
 
+#include <atomic>
 #include <vector>
 
 #include "CrossPointSettings.h"
@@ -41,11 +43,23 @@ class TxtReaderActivity final : public Activity {
   void loadProgress();
   uint16_t progressSeq_ = 0;  // dual-slot write counter (FR-01), seeded in loadProgress()
 
+  // RH-01: reading session tracking. initializeReader() runs on the render
+  // task and may spend minutes building the page index, so it only flags that
+  // the first page is ready; the main loop starts the session.
+  std::atomic<bool> readingSessionStartPending_{false};
+  ReadingHistory::SessionTracker readingSession_;
+  bool readingSessionPaused_ = false;
+  void startReadingSession(int64_t nowSec);
+  void flushReadingSession(const ReadingHistory::SessionRecord& record);
+  void tickReadingSession(int64_t nowSec);
+  void finishReadingSession();
+
  public:
   explicit TxtReaderActivity(GfxRenderer& renderer, MappedInputManager& mappedInput, std::unique_ptr<Txt> txt)
       : Activity("TxtReader", renderer, mappedInput), txt(std::move(txt)) {}
   void onEnter() override;
   void onExit() override;
+  void onPause() override;
   void loop() override;
   void render(RenderLock&&) override;
   bool isReaderActivity() const override { return true; }

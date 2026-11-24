@@ -3,6 +3,7 @@
 #include <Logging.h>
 #include <WiFi.h>
 #include <esp_sntp.h>
+#include <sys/time.h>
 #include <time.h>
 
 #include <cassert>
@@ -42,6 +43,17 @@ static uint8_t daysInMonth(uint16_t year, uint8_t month) {
   if (month < 1 || month > 12) return 0;
   if (month == 2 && ((year % 4 == 0 && year % 100 != 0) || year % 400 == 0)) return 29;
   return days[month - 1];
+}
+
+// Days since 1970-01-01 (Howard Hinnant's days_from_civil). Used to turn the
+// RTC's civil UTC fields into an epoch for settimeofday().
+static int64_t daysFromCivilUtc(int year, unsigned month, unsigned day) {
+  year -= month <= 2;
+  const int era = (year >= 0 ? year : year - 399) / 400;
+  const unsigned yoe = static_cast<unsigned>(year - era * 400);
+  const unsigned doy = (153u * (month + (month > 2 ? -3u : 9u)) + 2u) / 5u + day - 1u;
+  const unsigned doe = yoe * 365u + yoe / 4u - yoe / 100u + doy;
+  return static_cast<int64_t>(era) * 146097 + static_cast<int64_t>(doe) - 719468;
 }
 
 static bool readI2CReg8(uint8_t addr, uint8_t reg, uint8_t* outValue) {
@@ -276,7 +288,36 @@ bool HalClock::setDateTime(uint16_t year, uint8_t month, uint8_t day, uint8_t ho
     LOG_ERR("CLK", "setDateTime: bad date %04u-%02u-%02u", year, month, day);
     return false;
   }
-  return writeDateTimeToRTC(year, month, day, hour, minute, second);
+  if (!writeDateTimeToRTC(year, month, day, hour, minute, second)) return false;
+  // Offline features (reading history, chat stamps) read time(), not the RTC.
+  // Seed it here so a manual set takes effect without an NTP round trip.
+  if (year >= 2000) seedSystemTimeFromRTC();
+  return true;
+}
+
+bool HalClock::seedSystemTimeFromRTC() {
+  if (!_available || !_timeValid) return false;
+  const DateTime dt = getDateTime();
+  if (!dt.valid) return false;
+
+  const int64_t epoch = daysFromCivilUtc(dt.year, dt.month, dt.day) * 86400 + static_cast<int64_t>(dt.hour) * 3600 +
+                        static_cast<int64_t>(dt.minute) * 60 + dt.second;
+  // Same floor the history/chat writers use: refuse to seed a clock stuck near
+  // 1970, which would otherwise create a bogus "55-year session" later.
+  if (epoch < 1600000000LL) {
+    LOG_INF("CLK", "RTC time not sane (%04u-%02u-%02u), system clock not seeded", dt.year, dt.month, dt.day);
+    return false;
+  }
+
+  timeval tv{};
+  tv.tv_sec = static_cast<time_t>(epoch);
+  if (settimeofday(&tv, nullptr) != 0) {
+    LOG_ERR("CLK", "settimeofday failed for epoch %lld", static_cast<long long>(epoch));
+    return false;
+  }
+  LOG_INF("CLK", "System clock seeded from RTC: %04u-%02u-%02u %02u:%02u:%02u UTC", dt.year, dt.month, dt.day, dt.hour,
+          dt.minute, dt.second);
+  return true;
 }
 
 bool HalClock::writeDateTimeToRTC(uint16_t year, uint8_t month, uint8_t day, uint8_t hour, uint8_t minute,

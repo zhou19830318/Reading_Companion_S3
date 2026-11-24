@@ -602,7 +602,9 @@ void LyraTheme::drawHomeIconGrid(GfxRenderer& renderer, Rect rect, int itemCount
     }
 
     const int iconSize = mainMenuIconSize;
-    const int contentH = iconSize + 4 + labelLine;
+    // 8 px between icon and label: at 4 px the bookmark's tail touched the
+    // label on the selected tile (the only place the two inks meet).
+    const int contentH = iconSize + 8 + labelLine;
     const int contentY = tileY + (tileH - contentH) / 2;
     const uint8_t* iconBitmap = iconForName(tileIcon(i), iconSize);
     if (iconBitmap != nullptr) {
@@ -611,6 +613,6 @@ void LyraTheme::drawHomeIconGrid(GfxRenderer& renderer, Rect rect, int itemCount
     const std::string labelStr = tileLabel(i);
     const std::string labelLine1 = renderer.truncatedText(UI_10_FONT_ID, labelStr.c_str(), tileW - 8);
     const int textW = renderer.getTextWidth(UI_10_FONT_ID, labelLine1.c_str());
-    renderer.drawText(UI_10_FONT_ID, tileX + (tileW - textW) / 2, contentY + iconSize + 4, labelLine1.c_str(), true);
+    renderer.drawText(UI_10_FONT_ID, tileX + (tileW - textW) / 2, contentY + iconSize + 8, labelLine1.c_str(), true);
   }
 }

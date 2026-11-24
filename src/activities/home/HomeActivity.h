@@ -35,8 +35,13 @@ class HomeActivity final : public Activity {
   std::vector<UIIcon> gridIcons;
   const HomeMenuItem initialMenuItem;
 
-  // Home menu grid shape: three icon tiles per row (CJK labels need the width).
+  // Home menu grid: three tiles per row for the classic menu (CJK labels need
+  // the width). A tenth tile (Reading Stats) falls back to four columns only
+  // when the taller three-column grid would not fit the space left under the
+  // cover card — narrower cells truncate labels like "今天的词 3", so they are
+  // the fallback, not the default.
   static constexpr int GRID_COLUMNS = 3;
+  static int gridColumnsFor(const int tileCount, const int gridHeight, const ThemeMetrics& metrics);
 
   // Convert HomeMenuItem to menu index (used in onEnter)
   static int menuItemToIndex(HomeMenuItem item, bool hasOpdsUrl) {
@@ -50,6 +55,10 @@ class HomeActivity final : public Activity {
     if (item == HomeMenuItem::REVIEW) return i;
     ++i;
     if (item == HomeMenuItem::CALENDAR) return i;
+    ++i;
+    if (item == HomeMenuItem::STATS) return i;
+    ++i;
+    if (item == HomeMenuItem::PLAN) return i;
     ++i;
     if (item == HomeMenuItem::MARKETS) return i;
     ++i;
@@ -71,6 +80,8 @@ class HomeActivity final : public Activity {
     if (hasOpdsUrl && idx == i++) return HomeMenuItem::OPDS_BROWSER;
     if (idx == i++) return HomeMenuItem::REVIEW;
     if (idx == i++) return HomeMenuItem::CALENDAR;
+    if (idx == i++) return HomeMenuItem::STATS;
+    if (idx == i++) return HomeMenuItem::PLAN;
     if (idx == i++) return HomeMenuItem::MARKETS;
     if (idx == i++) return HomeMenuItem::VOICE;
     if (idx == i++) return HomeMenuItem::FILE_TRANSFER;

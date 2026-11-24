@@ -21,6 +21,7 @@
 #include "activities/ActivityResult.h"
 #include "activities/network/WifiSelectionActivity.h"
 #include "activities/voice/VoiceActivity.h"
+#include "components/CompanionMascot.h"
 #include "components/UITheme.h"
 #include "fontIds.h"
 #include "util/SleepCover.h"
@@ -560,28 +561,39 @@ void AiImageActivity::render(RenderLock&&) {
       return;
     }
 
-    case State::Working:
+    case State::Working: {
       renderer.clearScreen();
       GUI.drawHeader(renderer, Rect{screen.x, screen.y + metrics.topPadding, screen.width, metrics.headerHeight},
                      tr(STR_AI_IMAGE));
       renderer.drawCenteredText(UI_10_FONT_ID, contentTop + contentHeight / 3, tr(STR_AI_IMAGE_GENERATING));
+      int y = contentTop + contentHeight / 3 + metrics.verticalSpacing * 4;
       if (lastPrompt_[0] != '\0') {
         // Show what is being drawn, so a 30 s wait has context.
-        int y = contentTop + contentHeight / 3 + metrics.verticalSpacing * 4;
         for (const auto& line :
              renderer.wrappedText(UI_10_FONT_ID, lastPrompt_, screen.width - 2 * metrics.contentSidePadding, 3)) {
           renderer.drawText(UI_10_FONT_ID, screen.x + metrics.contentSidePadding, y, line.c_str());
           y += renderer.getLineHeight(UI_10_FONT_ID);
         }
       }
+      CompanionMascot::drawBlock(renderer, screen.x, y + metrics.verticalSpacing * 2, screen.width,
+                                 renderer.getScreenHeight() - metrics.buttonHintsHeight - metrics.verticalSpacing - y -
+                                     metrics.verticalSpacing * 2,
+                                 CompanionMascot::Pose::Think, nullptr);
       renderer.displayBuffer();
       return;
+    }
 
     case State::Failed: {
       renderer.clearScreen();
       GUI.drawHeader(renderer, Rect{screen.x, screen.y + metrics.topPadding, screen.width, metrics.headerHeight},
                      tr(STR_AI_IMAGE));
       renderer.drawCenteredText(UI_10_FONT_ID, contentTop + contentHeight / 3, I18N.get(failReason_));
+      {
+        const int blockTop = contentTop + contentHeight / 3 + renderer.getLineHeight(UI_10_FONT_ID) * 2;
+        const int blockBottom = renderer.getScreenHeight() - metrics.buttonHintsHeight - metrics.verticalSpacing;
+        CompanionMascot::drawBlock(renderer, screen.x, blockTop, screen.width, blockBottom - blockTop,
+                                   CompanionMascot::Pose::Sad, nullptr);
+      }
       const bool canRetry = downloadPending || lastPrompt_[0] != '\0';
       const auto labels = mappedInput.mapLabels(tr(STR_BACK), canRetry ? tr(STR_RETRY) : "", "", "");
       GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
@@ -617,16 +629,25 @@ void AiImageActivity::render(RenderLock&&) {
       GUI.drawHeader(renderer, Rect{screen.x, screen.y + metrics.topPadding, screen.width, metrics.headerHeight},
                      tr(STR_AI_IMAGE));
 
+      const int blockBottom = renderer.getScreenHeight() - metrics.buttonHintsHeight - metrics.verticalSpacing;
       if (state_ == State::Menu) {
         static constexpr StrId menuLabels[MENU_ROWS] = {StrId::STR_AI_IMAGE_NEW, StrId::STR_VOICE_HISTORY};
+        const int listH = MENU_ROWS * metrics.listRowHeight;
         GUI.drawList(
-            renderer, Rect{screen.x, contentTop, screen.width, contentHeight}, MENU_ROWS, menuIndex,
+            renderer, Rect{screen.x, contentTop, screen.width, listH}, MENU_ROWS, menuIndex,
             [](int index) { return I18N.get(menuLabels[index]); }, nullptr,
             [](int index) { return index == 0 ? Image : Recent; });
+        // The two rows leave the panel mostly empty; the buddy waits directly
+        // under the chooser with the one line that says what to do next (a
+        // box of exactly the group height keeps it anchored, not re-centred).
+        const int buddyH = CompanionMascot::SIZE + renderer.getLineHeight(UI_10_FONT_ID) + 8;
+        CompanionMascot::drawBlock(renderer, screen.x, contentTop + listH + metrics.verticalSpacing, screen.width,
+                                   buddyH, CompanionMascot::Pose::Paint, tr(STR_AI_IMAGE_PROMPT));
         const auto labels = mappedInput.mapLabels(tr(STR_BACK), tr(STR_SELECT), tr(STR_DIR_UP), tr(STR_DIR_DOWN));
         GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
       } else if (historyNames.empty()) {
-        renderer.drawCenteredText(UI_10_FONT_ID, contentTop + contentHeight / 2, tr(STR_VOICE_HISTORY_EMPTY));
+        CompanionMascot::drawBlock(renderer, screen.x, contentTop, screen.width, blockBottom - contentTop,
+                                   CompanionMascot::Pose::Paint, tr(STR_VOICE_HISTORY_EMPTY));
         const auto labels = mappedInput.mapLabels(tr(STR_BACK), "", "", "");
         GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
       } else {

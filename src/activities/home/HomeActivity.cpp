@@ -27,6 +27,8 @@ void HomeActivity::buildMenu() {
                 tr(STR_MENU_RECENT_BOOKS),
                 reviewLabel.empty() ? tr(STR_REVIEW_TODAY) : reviewLabel,
                 tr(STR_CALENDAR),
+                tr(STR_READING_STATS),
+                tr(STR_READING_PLANS),
                 tr(STR_MARKETS),
                 tr(STR_VOICE),
                 tr(STR_FILE_TRANSFER),
@@ -34,12 +36,22 @@ void HomeActivity::buildMenu() {
                 tr(STR_SETTINGS_TITLE)};
   // 万年历 reuses the clock tile: a dedicated bitmap would have to be authored
   // for every theme, and the clock already means "date/time" in this UI.
-  gridIcons = {Folder, Recent, Review, UIIcon::Recent, UIIcon::Market, Mic, Transfer, PigeonChat, Settings};
+  // 阅读计划 reuses the bookmark icon (a plan is a book plus a deadline).
+  gridIcons = {Folder,         Recent, Review,   UIIcon::Recent, UIIcon::Book, Bookmark,
+               UIIcon::Market, Mic,    Transfer, PigeonChat,     Settings};
 
   if (hasOpdsServers) {
     gridLabels.insert(gridLabels.begin() + 2, tr(STR_OPDS_BROWSER));
     gridIcons.insert(gridIcons.begin() + 2, Library);
   }
+}
+
+int HomeActivity::gridColumnsFor(const int tileCount, const int gridHeight, const ThemeMetrics& metrics) {
+  if (tileCount <= 9) return GRID_COLUMNS;
+  const int rows = (tileCount + GRID_COLUMNS - 1) / GRID_COLUMNS;
+  const int tileH = metrics.menuRowHeight + 28;  // same formula as drawHomeIconGrid
+  const int needed = rows * tileH + (rows - 1) * metrics.menuSpacing;
+  return needed > gridHeight ? 4 : GRID_COLUMNS;
 }
 
 void HomeActivity::loadRecentBooks(int maxBooks) {
@@ -227,6 +239,12 @@ void HomeActivity::loop() {
         case HomeMenuItem::CALENDAR:
           activityManager.goToCalendar();
           break;
+        case HomeMenuItem::STATS:
+          activityManager.goToStats();
+          break;
+        case HomeMenuItem::PLAN:
+          activityManager.goToPlans();
+          break;
         case HomeMenuItem::MARKETS:
           activityManager.goToMarkets();
           break;
@@ -276,8 +294,8 @@ void HomeActivity::render(RenderLock&&) {
   const int gridH = pageHeight - gridY - metrics.buttonHintsHeight;
   GUI.drawHomeIconGrid(
       renderer, Rect{0, gridY, pageWidth, gridH}, static_cast<int>(gridLabels.size()),
-      selectorIndex > 0 ? selectorIndex - 1 : -1, GRID_COLUMNS, [this](int index) { return gridLabels[index]; },
-      [this](int index) { return gridIcons[index]; });
+      selectorIndex > 0 ? selectorIndex - 1 : -1, gridColumnsFor(static_cast<int>(gridLabels.size()), gridH, metrics),
+      [this](int index) { return gridLabels[index]; }, [this](int index) { return gridIcons[index]; });
 
   const auto labels = mappedInput.mapLabels("", tr(STR_SELECT), tr(STR_DIR_UP), tr(STR_DIR_DOWN));
   GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);

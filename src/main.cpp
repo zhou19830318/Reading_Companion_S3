@@ -14,6 +14,8 @@
 #include <HalTiltGesture.h>
 #include <I18n.h>
 #include <Logging.h>
+#include <ReadingAggregate.h>
+#include <ReadingSessionFormat.h>
 #include <SPI.h>
 #include <TtsPlayer.h>
 #include <WiFi.h>
@@ -23,6 +25,8 @@
 #include <esp_heap_caps.h>
 #include <esp_task_wdt.h>
 #include <esp_timer.h>
+#include <sys/time.h>
+#include <time.h>
 
 #include <cstdio>
 #include <cstring>
@@ -461,6 +465,9 @@ void setup() {
 #endif
   // X3 DS3231 or OnePage V3.1 PCF8563; no-op on C61 (no RTC fitted).
   halClock.begin();
+  // time() starts at 0 on every boot. Reading history and chat stamps read it
+  // directly, so seed it from the RTC (kept in UTC) instead of waiting for NTP.
+  halClock.seedSystemTimeFromRTC();
 #if defined(ONEPAGE_S3)
   ENV_SENSOR.begin();  // SHT30 is optional; absent hardware just disables it
 #endif
@@ -689,6 +696,23 @@ static void runSyncPush() {
                    static_cast<unsigned>(sum.remaining));
 }
 
+// Debug: stream a file to the serial console between BEGIN/END markers, so a
+// device check never needs the SD card pulled. Path is printed with its size.
+static void dumpFileToSerial(const char* label, const char* path) {
+  HalFile f;
+  if (!Storage.openFileForRead("RH", path, f)) {
+    logSerial.printf("%s missing: %s\n", label, path);
+    return;
+  }
+  logSerial.printf("%s_BEGIN %s (%u bytes)\n", label, path, static_cast<unsigned>(f.size()));
+  char buf[256];
+  int r;
+  while ((r = f.read(buf, sizeof(buf))) > 0) {
+    logSerial.write(reinterpret_cast<const uint8_t*>(buf), static_cast<size_t>(r));
+  }
+  logSerial.printf("\n%s_END\n", label);
+}
+
 void loop() {
   static unsigned long maxLoopDuration = 0;
   const unsigned long loopStartTime = millis();
@@ -912,6 +936,80 @@ void loop() {
                          static_cast<unsigned>(s.bytes));
       } else if (cmd == "SYNC_PUSH") {
         runSyncPush();
+      } else if (cmd == "RH_DUMP" || cmd.startsWith("RH_DUMP ")) {
+        // Debug: print one day's reading-session JSONL straight from the SD.
+        // Usage: CMD:RH_DUMP [YYYY-MM-DD] (defaults to today in the configured
+        // offset). Keeps device verification from needing a card pull.
+        char day[ChatLog::ChatHistoryFormat::DATE_PATH_SIZE] = {};
+        if (cmd.length() > 8) {
+          snprintf(day, sizeof(day), "%.*s.jsonl", static_cast<int>(cmd.length() - 8), cmd.c_str() + 8);
+        } else if (!ChatLog::ChatHistoryFormat::dayPath(day, ChatLog::nowEpochMs(), SETTINGS.clockUtcOffsetQ)) {
+          logSerial.println("RH_DUMP no sane clock");
+        }
+        if (day[0] != '\0') {
+          char path[64];
+          const int n = snprintf(path, sizeof(path), "%s/%s", ReadingHistory::DIR, day);
+          if (n <= 0 || static_cast<size_t>(n) >= sizeof(path)) {
+            logSerial.println("RH_DUMP path too long");
+          } else {
+            dumpFileToSerial("RH_DUMP", path);
+          }
+        }
+      } else if (cmd == "RH_AGG" || cmd.startsWith("RH_AGG ")) {
+        // Debug: rebuild one day's RH-02 aggregate from its history file, then
+        // print the year document. Usage: CMD:RH_AGG [YYYY-MM-DD] (defaults to
+        // today in the configured offset). Verifies the aggregate without
+        // opening the stats view.
+        char day[ChatLog::ChatHistoryFormat::DATE_PATH_SIZE] = {};
+        if (cmd.length() > 7) {
+          snprintf(day, sizeof(day), "%.*s", static_cast<int>(cmd.length() - 7), cmd.c_str() + 7);
+        } else if (!ChatLog::ChatHistoryFormat::dayPath(day, ChatLog::nowEpochMs(), SETTINGS.clockUtcOffsetQ)) {
+          logSerial.println("RH_AGG no sane clock");
+        }
+        if (day[0] != '\0') {
+          const bool ok = ReadingHistory::updateDayAggregate(day);
+          logSerial.printf("RH_AGG %s: %s\n", day, ok ? "ok" : "failed");
+          int year = 0;
+          int month = 0;
+          int dom = 0;
+          if (ChatLog::ChatHistoryFormat::parseDayDate(day, year, month, dom)) {
+            char path[64];
+            const int n = snprintf(path, sizeof(path), "%s/%04d.json", ReadingHistory::AGGREGATE_DIR, year);
+            if (n > 0 && static_cast<size_t>(n) < sizeof(path)) dumpFileToSerial("RH_AGG_DUMP", path);
+          }
+        }
+      } else if (cmd == "RH_AGG_DROP" || cmd.startsWith("RH_AGG_DROP ")) {
+        // Debug: delete the year aggregate so the stats view exercises its
+        // history fallback (RH-02/RH-03 device checks). Usage:
+        // CMD:RH_AGG_DROP [YYYY-MM-DD] (defaults to today).
+        char day[ChatLog::ChatHistoryFormat::DATE_PATH_SIZE] = {};
+        if (cmd.length() > 12) {
+          snprintf(day, sizeof(day), "%.*s", static_cast<int>(cmd.length() - 12), cmd.c_str() + 12);
+        } else if (!ChatLog::ChatHistoryFormat::dayPath(day, ChatLog::nowEpochMs(), SETTINGS.clockUtcOffsetQ)) {
+          logSerial.println("RH_AGG_DROP no sane clock");
+        }
+        if (day[0] != '\0') {
+          int year = 0;
+          int month = 0;
+          int dom = 0;
+          if (!ChatLog::ChatHistoryFormat::parseDayDate(day, year, month, dom)) {
+            logSerial.printf("RH_AGG_DROP bad date: %s\n", day);
+          } else {
+            char path[64];
+            const int n = snprintf(path, sizeof(path), "%s/%04d.json", ReadingHistory::AGGREGATE_DIR, year);
+            if (n <= 0 || static_cast<size_t>(n) >= sizeof(path)) {
+              logSerial.println("RH_AGG_DROP path too long");
+            } else {
+              const bool removed = Storage.remove(path);
+              logSerial.printf("RH_AGG_DROP %s: %s\n", path, removed ? "removed" : "not present");
+            }
+          }
+        }
+      } else if (cmd == "PLAN_DUMP") {
+        // Debug: print the RP-01/02 files so device checks do not need a card
+        // pull. Paths mirror ReadingPlan::PLANS_PATH / SLOTS_PATH.
+        dumpFileToSerial("PLAN_DUMP", "/.crosspoint/plans/plans.json");
+        dumpFileToSerial("SLOTS_DUMP", "/.crosspoint/plans/slots.json");
       } else if (cmd == "SDTEST") {
         // SD throughput vs CPU frequency. SdFat polls the wire byte by byte, so
         // the transfer rate may track the CPU rather than the SPI clock — and
@@ -1124,6 +1222,14 @@ void loop() {
         } else {
           logSerial.println("SETDATE bad args");
         }
+      } else if (cmd == "CLOCK_CLEAR") {
+        // Debug: put time() back to the unsynced state without touching the RTC,
+        // so the "no 1970 history file" path can be exercised without a power
+        // cycle. A software reset keeps the ESP32 RTC timer, so setting the RTC
+        // to a pre-2020 date and rebooting does not clear time().
+        timeval tv{};
+        settimeofday(&tv, nullptr);
+        logSerial.printf("CLOCK_CLEAR now=%lld\n", static_cast<long long>(time(nullptr)));
       } else if (cmd == "POMODORO_STATE") {
         // Debug: report the focus-timer state for device tests. state is the
         // PomodoroSession::State ordinal (0 Idle, 1 Work, 2 WorkDone, 3 Break,
