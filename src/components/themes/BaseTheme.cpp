@@ -132,6 +132,10 @@ void BaseTheme::drawBatteryRight(const GfxRenderer& renderer, Rect rect, const b
   fillBatteryIcon(renderer, iconRect, percentage);
 }
 
+void BaseTheme::drawSurface(const GfxRenderer& renderer, Rect rect, bool selected) const {
+  renderer.drawRect(rect.x, rect.y, rect.width, rect.height, selected ? 3 : 1, true);
+}
+
 void BaseTheme::drawProgressBar(const GfxRenderer& renderer, Rect rect, const size_t current,
                                 const size_t total) const {
   if (total == 0) {
@@ -855,7 +859,7 @@ void BaseTheme::drawChoiceCards(GfxRenderer& renderer, Rect rect, int cardCount,
     if (selectedIndex == i) {
       renderer.fillRoundedRect(x, cardY, width, cardHeight, cardRadius, Color::LightGray);
     } else {
-      renderer.drawRect(x, cardY, width, cardHeight);
+      drawSurface(renderer, Rect{x, cardY, width, cardHeight});
     }
 
     int lineY = cardY + (cardHeight - blockHeight) / 2;
@@ -978,7 +982,7 @@ void BaseTheme::drawStatusBar(GfxRenderer& renderer, const float bookProgress, c
 
   const int leftClusterX = metrics.statusBarHorizontalMargin + orientedMarginLeft + 1;
   const int rightClusterX = renderer.getScreenWidth() - metrics.statusBarHorizontalMargin - orientedMarginRight;
-  int leftClusterWidth = 0;
+  int leftClusterWidth = showStatusBarTextLane ? drawReaderDecoration(renderer, leftClusterX, textY) : 0;
   int rightClusterWidth = 0;
 
   if (SETTINGS.statusBarBookProgressPercentage || SETTINGS.statusBarChapterPageCount) {

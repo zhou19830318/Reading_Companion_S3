@@ -104,6 +104,8 @@ const uint8_t* iconForName(UIIcon icon, int size) {
 }
 }  // namespace
 
+const uint8_t* LyraTheme::iconBitmap(UIIcon icon, int size) { return iconForName(icon, size); }
+
 void LyraTheme::fillBatteryIcon(const GfxRenderer& renderer, Rect rect, uint16_t percentage) const {
   const bool charging = gpio.isUsbConnected();
 

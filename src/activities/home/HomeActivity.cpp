@@ -49,7 +49,7 @@ void HomeActivity::buildMenu() {
 int HomeActivity::gridColumnsFor(const int tileCount, const int gridHeight, const ThemeMetrics& metrics) {
   if (tileCount <= 9) return GRID_COLUMNS;
   const int rows = (tileCount + GRID_COLUMNS - 1) / GRID_COLUMNS;
-  const int tileH = metrics.menuRowHeight + 28;  // same formula as drawHomeIconGrid
+  const int tileH = metrics.menuRowHeight + 32;  // same formula as drawHomeIconGrid
   const int needed = rows * tileH + (rows - 1) * metrics.menuSpacing;
   return needed > gridHeight ? 4 : GRID_COLUMNS;
 }
@@ -275,8 +275,13 @@ void HomeActivity::render(RenderLock&&) {
   renderer.clearScreen();
   bool bufferRestored = coverBufferStored && restoreCoverBuffer();
 
-  GUI.drawHeader(renderer, Rect{0, metrics.topPadding, pageWidth, metrics.homeTopPadding},
-                 metrics.homeContinueReadingInMenu && !recentBooks.empty() ? recentBooks[0].title.c_str() : nullptr);
+  // Themes with a home greeting banner (Baize) paint the whole header area and
+  // tell us so; the rest keep the one-line header.
+  const Rect homeHeaderRect{0, metrics.topPadding, pageWidth, metrics.homeTopPadding};
+  if (!GUI.drawHomeGreeting(renderer, homeHeaderRect, !recentBooks.empty())) {
+    GUI.drawHeader(renderer, homeHeaderRect,
+                   metrics.homeContinueReadingInMenu && !recentBooks.empty() ? recentBooks[0].title.c_str() : nullptr);
+  }
 
   // Record the tile rect so storeCoverBuffer (called from the theme) knows
   // which sub-region of the framebuffer to snapshot. ~16 KB in Portrait
@@ -292,10 +297,12 @@ void HomeActivity::render(RenderLock&&) {
 
   const int gridY = metrics.homeTopPadding + metrics.homeCoverTileHeight + metrics.homeMenuTopOffset;
   const int gridH = pageHeight - gridY - metrics.buttonHintsHeight;
+  const int columns =
+      std::max(gridColumnsFor(static_cast<int>(gridLabels.size()), gridH, metrics), GUI.preferredHomeColumns());
   GUI.drawHomeIconGrid(
       renderer, Rect{0, gridY, pageWidth, gridH}, static_cast<int>(gridLabels.size()),
-      selectorIndex > 0 ? selectorIndex - 1 : -1, gridColumnsFor(static_cast<int>(gridLabels.size()), gridH, metrics),
-      [this](int index) { return gridLabels[index]; }, [this](int index) { return gridIcons[index]; });
+      selectorIndex > 0 ? selectorIndex - 1 : -1, columns, [this](int index) { return gridLabels[index]; },
+      [this](int index) { return gridIcons[index]; });
 
   const auto labels = mappedInput.mapLabels("", tr(STR_SELECT), tr(STR_DIR_UP), tr(STR_DIR_DOWN));
   GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);

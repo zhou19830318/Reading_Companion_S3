@@ -72,6 +72,9 @@ constexpr ThemeMetrics values = {.batteryWidth = 16,
 }
 
 class LyraTheme : public BaseTheme {
+ protected:
+  static const uint8_t* iconBitmap(UIIcon icon, int size);
+
  public:
   // Component drawing methods
   void fillBatteryIcon(const GfxRenderer& renderer, Rect rect, uint16_t percentage) const override;

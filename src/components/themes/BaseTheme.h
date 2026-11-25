@@ -209,7 +209,13 @@ class BaseTheme {
   virtual ~BaseTheme() = default;
 
   // Component drawing methods
-  void drawProgressBar(const GfxRenderer& renderer, Rect rect, size_t current, size_t total) const;
+  virtual void drawProgressBar(const GfxRenderer& renderer, Rect rect, size_t current, size_t total) const;
+  virtual void drawSurface(const GfxRenderer& renderer, Rect rect, bool selected = false) const;
+  // Optional theme treatment for standalone messages and the reader's existing text lane.
+  virtual bool drawSystemMessage(const GfxRenderer& renderer, Rect rect, const char* title, const char* body) const {
+    return false;
+  }
+  virtual int drawReaderDecoration(const GfxRenderer& renderer, int x, int y) const { return 0; }
   void drawBatteryLeft(const GfxRenderer& renderer, Rect rect,
                        bool showPercentage = true) const;  // Left aligned (reader mode)
   void drawBatteryRight(const GfxRenderer& renderer, Rect rect,
@@ -259,6 +265,17 @@ class BaseTheme {
   virtual void drawButtonMenu(GfxRenderer& renderer, Rect rect, int buttonCount, int selectedIndex,
                               const std::function<std::string(int index)>& buttonLabel,
                               const std::function<UIIcon(int index)>& rowIcon) const;
+  // Home-screen greeting banner drawn in place of the one-line header. Return
+  // true when the theme painted `rect`; the caller then skips drawHeader.
+  virtual bool drawHomeGreeting(const GfxRenderer& renderer, Rect rect, bool hasRecentBook) const {
+    (void)renderer;
+    (void)rect;
+    (void)hasRecentBook;
+    return false;
+  }
+  // Preferred column count for the home quick-entry grid. Callers treat it as
+  // a lower bound: they may still widen the grid when it would not fit.
+  virtual int preferredHomeColumns() const { return 3; }
   // Flat multi-column icon grid for the home menu: one tile per entry, icon
   // over a centred label, selected tile filled. Rows are derived from
   // itemCount and `columns`; the grid is top-aligned in `rect` with a fixed
@@ -286,7 +303,7 @@ class BaseTheme {
   void drawStatusBar(GfxRenderer& renderer, const float bookProgress, const int currentPage, const int pageCount,
                      std::string title, const int paddingBottom = 0, const int textYOffset = 0,
                      const bool fillMargin = true, const bool isPageBookmarked = false) const;
-  void drawHelpText(const GfxRenderer& renderer, Rect rect, const char* label) const;
+  virtual void drawHelpText(const GfxRenderer& renderer, Rect rect, const char* label) const;
   void drawMarketCard(const GfxRenderer& renderer, Rect rect, const Markets::Card& card, bool selected,
                       bool sparkline = true) const;
   void drawMarketChart(const GfxRenderer& renderer, Rect rect, const Markets::Card& card, bool intraday) const;

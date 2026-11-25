@@ -35,6 +35,14 @@ void ConfirmationActivity::onEnter() {
 void ConfirmationActivity::render(RenderLock&& lock) {
   renderer.clearScreen();
 
+  const Rect safe = UITheme::getInstance().getScreenSafeArea(renderer, true);
+  if (GUI.drawSystemMessage(renderer, safe, heading.c_str(), body.c_str())) {
+    const auto labels = mappedInput.mapLabels("", "", tr(STR_CANCEL), tr(STR_CONFIRM));
+    GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
+    renderer.displayBuffer(HalDisplay::FAST_REFRESH);
+    return;
+  }
+
   int currentY = startY;
   LOG_DBG("CONF", "currentY: %d", currentY);
   // Draw Heading
