@@ -565,8 +565,11 @@ void ReviewActivity::render(RenderLock&&) {
     confirm = tr(STR_COMPANION_RATE);
   } else if (state_ == State::Rating) {
     confirm = tr(STR_REVIEW_SUBMIT);
-  } else if (state_ == State::Failed || state_ == State::Empty) {
+  } else if (state_ == State::Failed) {
     confirm = tr(STR_RETRY);
+  } else if (state_ == State::Empty) {
+    // Nothing failed here: the queue is simply empty and Confirm reloads it.
+    confirm = tr(STR_REFRESH);
   }
   const auto labels = mappedInput.mapLabels(tr(STR_BACK), confirm, "", "");
   GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
