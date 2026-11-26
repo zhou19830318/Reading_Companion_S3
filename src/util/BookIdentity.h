@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <string>
 
 // Device-side book identity, matching the relay contract
@@ -18,9 +19,16 @@
 // old id (acceptable for V1: the reader clears the book cache when a file is
 // overwritten anyway).
 //
-// Returns an empty string on open/hash failure, which the AI screen treats as
-// "not in the library": unindexed-book Q&A without citations.
-std::string getBookId(const std::string& path);
+// Returns an empty string on open/hash failure; the AI screen can then show a
+// specific "could not identify this book" notice instead of pretending the
+// relay does not know it.
+//
+// `onProgress` is optional. When set, the first fingerprint reports 0-100 so
+// the caller can keep a waiting screen alive while a large SD-copied book is
+// hashed. The callback runs on the caller's task inside the read loop.
+using HashProgress = void (*)(void* ctx, uint8_t percent);
+
+std::string getBookId(const std::string& path, HashProgress onProgress = nullptr, void* ctx = nullptr);
 
 // Cache-only lookup: returns the sidecar id when it is well-formed and its
 // stored size matches the current file. Never hashes, so it is safe on a UI

@@ -37,14 +37,32 @@ constexpr size_t AUTH_CAP = 192;
 // Longest error body prefix drained for the log + the UNAUTHORIZED token.
 constexpr size_t ERROR_BODY_CAP = 159;
 
-bool writeAll(esp_http_client_handle_t client, const char* data, size_t len) {
+bool stopRequested(const std::atomic<bool>* cancel, const uint32_t started, ChatClient::Result& reason) {
+  if (cancel != nullptr && cancel->load(std::memory_order_relaxed)) {
+    reason = ChatClient::Result::Cancelled;
+    return true;
+  }
+  if (static_cast<uint32_t>(millis() - started) >= ChatClient::TOTAL_TIMEOUT_MS) {
+    reason = ChatClient::Result::Timeout;
+    return true;
+  }
+  return false;
+}
+
+ChatClient::Result writeAll(esp_http_client_handle_t client, const char* data, size_t len,
+                            const std::atomic<bool>* cancel, const uint32_t started) {
   size_t sent = 0;
   while (sent < len) {
+    ChatClient::Result reason = ChatClient::Result::Ok;
+    if (stopRequested(cancel, started, reason)) return reason;
     const int n = esp_http_client_write(client, data + sent, static_cast<int>(len - sent));
-    if (n <= 0) return false;
+    if (n <= 0) {
+      if (stopRequested(cancel, started, reason)) return reason;
+      return ChatClient::Result::Http;
+    }
     sent += static_cast<size_t>(n);
   }
-  return true;
+  return ChatClient::Result::Ok;
 }
 
 ChatClient::Result mapProviderError(ErrorCode code) {
@@ -90,13 +108,16 @@ Scratch allocScratch(size_t size) {
 
 ChatClient::Result ChatClient::ask(const char* url, const char* token, const char* deviceId, const char* text,
                                    char* reply, size_t replyCap, bool& truncated, char* strokesOut, size_t strokesCap,
-                                   const char* mode, Stats* stats) {
+                                   const char* mode, Stats* stats, const std::atomic<bool>* cancel) {
+  const uint32_t started = millis();
+  ChatClient::Result reason = ChatClient::Result::Ok;
   truncated = false;
   if (stats != nullptr) *stats = Stats{};
   if (url == nullptr || token == nullptr || deviceId == nullptr || text == nullptr || reply == nullptr ||
       replyCap == 0) {
     return Result::BadConfig;
   }
+  if (stopRequested(cancel, started, reason)) return reason;
   if (!WiFi.isConnected()) return Result::NoWifi;
   const ParsedUrl parsed = parseRelayUrl(url);
   if (!parsed.valid || token[0] == '\0' || deviceId[0] == '\0' || strlen(token) >= AUTH_CAP - 8) {
@@ -151,18 +172,28 @@ ChatClient::Result ChatClient::ask(const char* url, const char* token, const cha
   esp_http_client_set_header(client, "X-Device-Id", deviceId);
 
   LOG_INF("VCHAT", "POST %s (%u body bytes)", httpUrl, static_cast<unsigned>(reqLen));
+  if (stopRequested(cancel, started, reason)) {
+    esp_http_client_cleanup(client);
+    return reason;
+  }
   if (esp_http_client_open(client, static_cast<int64_t>(reqLen)) != ESP_OK) {
     LOG_ERR("VCHAT", "open failed");
     esp_http_client_cleanup(client);
+    if (stopRequested(cancel, started, reason)) return reason;
     return Result::Connect;
   }
-  if (!writeAll(client, req.get(), reqLen)) {
-    LOG_ERR("VCHAT", "body write failed");
+  const ChatClient::Result writeResult = writeAll(client, req.get(), reqLen, cancel, started);
+  if (writeResult != ChatClient::Result::Ok) {
+    LOG_ERR("VCHAT", "body write failed: %s", resultName(writeResult));
     esp_http_client_cleanup(client);
-    return Result::Http;
+    return writeResult;
   }
 
   const int64_t contentLength = esp_http_client_fetch_headers(client);
+  if (stopRequested(cancel, started, reason)) {
+    esp_http_client_cleanup(client);
+    return reason;
+  }
   const int status = esp_http_client_get_status_code(client);
   if (stats != nullptr) stats->httpStatus = status;
 
@@ -171,7 +202,17 @@ ChatClient::Result ChatClient::ask(const char* url, const char* token, const cha
     // {"error":"UNAUTHORIZED"} / {"code":"LLM_..."} token that picks the class.
     size_t n = 0;
     while (n < ERROR_BODY_CAP) {
-      const int got = esp_http_client_read(client, body.get() + n, static_cast<int>(ERROR_BODY_CAP - n));
+      if (stopRequested(cancel, started, reason)) {
+        esp_http_client_cleanup(client);
+        return reason;
+      }
+      // ESP-IDF fills the requested length before returning; one-byte reads keep
+      // cancellation and the total deadline observable while a peer trickles.
+      const int got = esp_http_client_read(client, body.get() + n, 1);
+      if (stopRequested(cancel, started, reason)) {
+        esp_http_client_cleanup(client);
+        return reason;
+      }
       if (got <= 0) break;
       n += static_cast<size_t>(got);
     }
@@ -191,7 +232,21 @@ ChatClient::Result ChatClient::ask(const char* url, const char* token, const cha
 
   size_t total = 0;
   while (total < BODY_CAP - 1) {
-    const int got = esp_http_client_read(client, body.get() + total, static_cast<int>(BODY_CAP - 1 - total));
+    if (stopRequested(cancel, started, reason)) {
+      esp_http_client_cleanup(client);
+      return reason;
+    }
+    // Keep each blocking read short enough to re-check the total deadline.
+    const int got = esp_http_client_read(client, body.get() + total, 1);
+    if (stopRequested(cancel, started, reason)) {
+      esp_http_client_cleanup(client);
+      return reason;
+    }
+    if (got == -ESP_ERR_HTTP_EAGAIN) {
+      LOG_ERR("VCHAT", "socket read timed out after %u bytes", static_cast<unsigned>(total));
+      esp_http_client_cleanup(client);
+      return Result::Timeout;
+    }
     if (got < 0) {
       LOG_ERR("VCHAT", "read failed after %u bytes", static_cast<unsigned>(total));
       esp_http_client_cleanup(client);
@@ -199,13 +254,14 @@ ChatClient::Result ChatClient::ask(const char* url, const char* token, const cha
     }
     if (got == 0) break;  // end of body
     total += static_cast<size_t>(got);
-    esp_task_wdt_reset();
+    if (esp_task_wdt_status(nullptr) == ESP_OK) esp_task_wdt_reset();
   }
   const bool complete = esp_http_client_is_complete_data_received(client);
   esp_http_client_cleanup(client);
   body[total] = '\0';
   if (stats != nullptr) stats->responseBytes = total;
   if (!complete && total == BODY_CAP - 1) truncated = true;  // body cut by the read buffer
+  if (stopRequested(cancel, started, reason)) return reason;
 
   bool parseTruncated = false;
   ErrorCode code = ErrorCode::None;
@@ -243,6 +299,8 @@ const char* ChatClient::resultName(Result result) {
       return "TIME";
     case Result::Connect:
       return "CONNECT";
+    case Result::Timeout:
+      return "TIMEOUT";
     case Result::Http:
       return "HTTP";
     case Result::Auth:
@@ -251,6 +309,8 @@ const char* ChatClient::resultName(Result result) {
       return "UPSTREAM";
     case Result::Read:
       return "READ";
+    case Result::Cancelled:
+      return "CANCELLED";
     case Result::Oom:
       return "OOM";
     case Result::NoText:

@@ -402,4 +402,26 @@ const char* sourceName(Source source) {
   }
 }
 
+ErrorKind classifyHttpError(const int status, const char* body) {
+  if (body == nullptr) body = "";
+  if (status == 401 || std::strstr(body, "UNAUTHORIZED") != nullptr ||
+      std::strstr(body, "DEVICE_NOT_ALLOWED") != nullptr) {
+    return ErrorKind::Auth;
+  }
+  // Structured library errors come before the bare-404 rule: a 404 carrying
+  // BOOK_NOT_FOUND is about this file, not about the route.
+  if (std::strstr(body, "BOOK_NOT_FOUND") != nullptr) return ErrorKind::NotUploaded;
+  if (std::strstr(body, "BOOK_NOT_READY") != nullptr) return ErrorKind::Indexing;
+  if (std::strstr(body, "PASSAGE_NOT_FOUND") != nullptr) return ErrorKind::PassageMissing;
+  // A relay deployed before the library API answers 404 for the route itself.
+  // The caller can still fall back to uncited chat, but the notice should say
+  // the service is missing rather than blaming this book.
+  if (status == 404) return ErrorKind::LibraryUnavailable;
+  if (std::strstr(body, "LLM_") != nullptr || std::strstr(body, "RATE_LIMITED") != nullptr ||
+      std::strstr(body, "OVERLOADED") != nullptr || status == 502) {
+    return ErrorKind::Upstream;
+  }
+  return status >= 500 ? ErrorKind::Upstream : ErrorKind::Other;
+}
+
 }  // namespace ReaderQuery

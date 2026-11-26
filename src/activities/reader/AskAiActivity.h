@@ -37,10 +37,12 @@
 //    question is picked, so the picker and the selection screen stay usable
 //    offline and the Wi-Fi detour happens at send time (the same rule as the
 //    note-mode fix in VoiceActivity::startRecording);
-//  - the passage context is resolved just before the blocking call (a Section
-//    page read for Page, the whole chapter server-side for Chapter), or copied
-//    up front into a PSRAM-forced line pool (Range), so the page decode never
-//    overlaps the TLS dip with internal-heap allocations.
+//  - the passage context is resolved just before starting the relay worker (a
+//    Section page read for Page, the whole chapter server-side for Chapter), or
+//    copied up front into a PSRAM-forced line pool (Range), so the page decode
+//    never overlaps the TLS dip with internal-heap allocations.
+struct RelayRequest;
+
 class AskAiActivity final : public Activity {
  public:
   AskAiActivity(GfxRenderer& renderer, MappedInputManager& mappedInput) : Activity("AskAi", renderer, mappedInput) {}
@@ -68,7 +70,7 @@ class AskAiActivity final : public Activity {
   enum class State : uint8_t {
     Picking,    // preset / voice question list
     Selecting,  // line-range picker for the Range presets
-    Asking,     // blocking relay round in flight (painted before the call)
+    Asking,     // relay round in flight on a worker (waiting frame is interactive)
     Answer,     // settled reply, scrollable window
     Citations,  // citation picker over a reader/query answer
     Failed,     // round trip died; Confirm retries the same question
@@ -148,12 +150,14 @@ class AskAiActivity final : public Activity {
   // The relay setting is complete (URL + token + device id). Checked per ask,
   // so flipping the setting applies to the next question.
   bool relayConfigured();
-  // Blocking POST /api/v1/reader/query (indexed book) or /api/v1/chat
-  // (unindexed book: uncited Q&A). Paints the waiting frame first: no repaint
-  // can run mid-call.
+  // POST /api/v1/reader/query (indexed book) or /api/v1/chat (unindexed book:
+  // uncited Q&A) on a worker task. The waiting frame stays interactive so Back
+  // can cancel and leave while the bounded socket call unwinds.
   void beginRelayAsk();
   void beginReaderQuery();
-  void beginChat();
+  void beginChat(StrId notice);
+  void handleRelayCompletion();
+  void cancelRelayRequest();
   void composeQueryAnswer();
   void enqueueAiResult();
   // Chapter discussion: capture the reader's spoken viewpoint for the selected
@@ -172,9 +176,12 @@ class AskAiActivity final : public Activity {
   void fail(const char* reason);
   // Book identity and passage collection for the relay's citation contract.
   // The id is computed lazily (first ask) because hashing the whole file is a
-  // multi-second SD read; an empty id means the book is not in the library and
-  // the reply degrades to uncited Q&A.
+  // multi-second SD read; it runs behind State::Asking with a progress read-out
+  // and the result is cached in a sidecar. An empty id means the file could not
+  // be identified, and the reply degrades to uncited Q&A with a notice saying
+  // so (the relay decides separately whether the book is uploaded/indexed).
   void ensureBookId();
+  static void hashProgress(void* ctx, uint8_t percent);
   void collectQueryPassages();
   void addPassageSpan(const EpubPassage::Ref ref, uint32_t charStart, uint32_t charEnd);
   bool ensureSelectedText();
@@ -196,7 +203,14 @@ class AskAiActivity final : public Activity {
   char queryPassageIds_[MAX_QUERY_PASSAGES][40] = {};
   const char* queryPassageIdPtrs_[MAX_QUERY_PASSAGES] = {};
   const char* intent_ = "explain";
-  bool uncited_ = false;  // unindexed book: /chat fallback, no source labels
+  bool uncited_ = false;  // /chat fallback: the answer carries no book citations
+  // Why this round is uncited. A StrId (not a char*) so a language switch
+  // cannot leave a dangling translation pointer behind.
+  StrId uncitedNotice_ = StrId::STR_AI_UNCITED;
+  // First fingerprint in flight behind State::Asking. Written by the loop task,
+  // read by the render task, like identifyPercent_ below.
+  volatile bool identifyingBook_ = false;
+  volatile uint8_t identifyPercent_ = 0;
 
   State state_ = State::Picking;
   bool chapterDiscussionPending_ = false;
@@ -248,6 +262,10 @@ class AskAiActivity final : public Activity {
   // so it is never resident across the TLS dial (the class comment's rule) nor
   // while the preset list is up.
   std::unique_ptr<Page> page_;
+  // The worker owns its request copy and output buffers. A shared reference lets
+  // onExit cancel immediately without freeing memory the worker still uses.
+  std::shared_ptr<RelayRequest> relayRequest_;
+  uint32_t relayDeadlineMs_ = 0;
   // Sliding window over the page's viewport-relative Y coordinates: the view
   // scrolls only to keep selectCursor_'s line whole inside it.
   int scrollY_ = 0;

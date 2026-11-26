@@ -65,15 +65,21 @@ def _load_json(text: str) -> Any:
         return json.loads(text)
     except (TypeError, ValueError):
         pass
-    # Tolerate a short prose preamble/epilogue around the JSON object.
-    for opener, closer in (("{", "}"), ("[", "]")):
+    # Tolerate a short prose preamble, but never ignore a trailing answer or
+    # error after the first complete JSON value.
+    decoder = json.JSONDecoder()
+    for opener in ("{", "["):
         start = text.find(opener)
-        end = text.rfind(closer)
-        if start >= 0 and end > start:
-            try:
-                return json.loads(text[start : end + 1])
-            except (TypeError, ValueError):
+        if start < 0:
+            continue
+        try:
+            value, end = decoder.raw_decode(text, start)
+            suffix = text[end:].strip()
+            if suffix and any(ch not in "]}" for ch in suffix):
                 continue
+            return value
+        except (TypeError, ValueError):
+            continue
     return None
 
 

@@ -20,10 +20,15 @@
 #include <WifiIdleManager.h>
 #include <esp_heap_caps.h>
 #include <esp_random.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
 
 #include <algorithm>
+#include <atomic>
 #include <cstdio>
 #include <cstring>
+#include <memory>
+#include <new>
 #include <string>
 #include <vector>
 
@@ -39,6 +44,30 @@
 #include "util/BookIdentity.h"
 
 using Notes::NoteStore;
+
+struct RelayRequest {
+  enum class Kind : uint8_t { Query, Chat };
+  Kind kind = Kind::Query;
+  StrId notice = StrId::STR_AI_UNCITED;
+  std::atomic<bool> done{false};
+  std::atomic<bool> cancel{false};
+  std::atomic<bool> timedOut{false};
+  std::atomic<bool> workerFinished{false};
+  void* data = nullptr;
+  ReaderQuery::Response* response = nullptr;
+  char* reply = nullptr;
+  ReaderQuery::Client::Result queryResult = ReaderQuery::Client::Result::BadConfig;
+  VoiceRelay::ChatClient::Result chatResult = VoiceRelay::ChatClient::Result::BadConfig;
+  ReaderQuery::Client::Stats queryStats;
+  VoiceRelay::ChatClient::Stats chatStats;
+  bool truncated = false;
+
+  ~RelayRequest() {
+    heap_caps_free(data);
+    heap_caps_free(response);
+    heap_caps_free(reply);
+  }
+};
 
 namespace {
 
@@ -122,6 +151,65 @@ void drawSelectionRule(GfxRenderer& renderer, const int x, const int y, const in
     renderer.drawLine(x + px, y + (down ? 0 : amp), x + end - 1, y + (down ? amp : 0), true);
   }
 }
+
+struct QueryRequestData {
+  char url[CloudConfig::RELAY_URL_SIZE] = {};
+  char token[CloudConfig::TOKEN_SIZE] = {};
+  char deviceId[CloudConfig::RELAY_DEVICE_ID_SIZE] = {};
+  char bookId[17] = {};
+  char question[1024] = {};
+  char selectedText[4001] = {};
+  char intent[32] = {};
+  char contextScope[32] = {};
+  char language[8] = {};
+  char passageIds[8][40] = {};
+  const char* passagePtrs[8] = {};
+  ReaderQuery::Request request = {};
+};
+
+struct ChatRequestData {
+  char url[CloudConfig::RELAY_URL_SIZE] = {};
+  char token[CloudConfig::TOKEN_SIZE] = {};
+  char deviceId[CloudConfig::RELAY_DEVICE_ID_SIZE] = {};
+  char prompt[VoiceRelay::CHAT_TEXT_CAP] = {};
+};
+
+void relayRequestTask(void* arg) {
+  std::unique_ptr<std::shared_ptr<RelayRequest>> holder(static_cast<std::shared_ptr<RelayRequest>*>(arg));
+  auto job = std::move(*holder);
+  if (job->kind == RelayRequest::Kind::Query) {
+    auto* data = static_cast<QueryRequestData*>(job->data);
+    job->queryResult = ReaderQuery::Client::ask(data->url, data->token, data->deviceId, data->request, *job->response,
+                                                &job->queryStats, &job->cancel);
+  } else {
+    auto* data = static_cast<ChatRequestData*>(job->data);
+    job->chatResult = VoiceRelay::ChatClient::ask(data->url, data->token, data->deviceId, data->prompt, job->reply,
+                                                  VoiceRelay::CHAT_TEXT_CAP + 1, job->truncated, nullptr, 0, nullptr,
+                                                  &job->chatStats, &job->cancel);
+  }
+  job->workerFinished.store(true, std::memory_order_release);
+  job->done.store(true, std::memory_order_release);
+  WIFI_IDLE.release();
+  job.reset();
+  holder.reset();
+  vTaskDelete(nullptr);
+}
+
+bool startRelayRequest(const std::shared_ptr<RelayRequest>& job) {
+  auto* arg = new (std::nothrow) std::shared_ptr<RelayRequest>(job);
+  if (arg == nullptr) return false;
+  // The worker owns this hold until its bounded socket call unwinds, including
+  // after the UI cancels and drops its own shared_ptr.
+  WIFI_IDLE.hold();
+  // HTTP/TLS uses more stack than the indexing workers; PSRAM cannot back task
+  // stacks, so keep this in internal RAM like the other network tasks.
+  if (xTaskCreate(&relayRequestTask, "AskRelay", 12288, arg, 1, nullptr) != pdPASS) {
+    WIFI_IDLE.release();
+    delete arg;
+    return false;
+  }
+  return true;
+}
 }  // namespace
 
 void AskAiActivity::setBookContext(const std::shared_ptr<Epub>& book, const char* bookBase, uint16_t spineIndex,
@@ -158,6 +246,7 @@ void AskAiActivity::startChapterDiscussion() {
 }
 
 void AskAiActivity::onExit() {
+  cancelRelayRequest();
   voice_.stop();
   exitSelectionView();
   if (linePool_ != nullptr) {
@@ -187,6 +276,13 @@ void AskAiActivity::onPause() { voice_.stop(); }
 
 void AskAiActivity::beginAsk(const char* question, Scope scope, const char* intent) {
   if (question == nullptr || question[0] == '\0') return;
+  if (relayRequest_ != nullptr && !relayRequest_->workerFinished.load(std::memory_order_acquire)) {
+    relayRequest_->cancel.store(true, std::memory_order_release);
+    fail(tr(STR_AI_REQUEST_TIMEOUT));
+    return;
+  }
+  cancelRelayRequest();
+  relayDeadlineMs_ = 0;
   snprintf(question_, sizeof(question_), "%s", question);
   scope_ = scope;
   intent_ = (intent != nullptr && intent[0] != '\0') ? intent : "explain";
@@ -194,6 +290,11 @@ void AskAiActivity::beginAsk(const char* question, Scope scope, const char* inte
   answerScroll_ = 0;
   failReason_ = nullptr;
   uncited_ = false;
+  uncitedNotice_ = StrId::STR_AI_UNCITED;
+  identifyingBook_ = false;
+  if (queryText_ != nullptr) queryText_[0] = '\0';
+  if (relayReply_ != nullptr) relayReply_[0] = '\0';
+  if (queryResponse_ != nullptr) *queryResponse_ = ReaderQuery::Response{};
   // Drop everything the selection view held before any radio work: the page
   // and its glyph prewarm are the only internal-heap residents here, and the
   // class rule is that neither may meet the TLS handshake's dip.
@@ -367,23 +468,33 @@ void AskAiActivity::ensureBookId() {
     return;
   }
 
-  // Do not fingerprint a large SD-copied book on the UI task. A 36 MB EPUB
-  // held the loop task for >30 s and tripped the task watchdog (froze, then
-  // rebooted). Degrade to uncited Q&A immediately; a background/pre-index
-  // hasher can fill the sidecar later.
-  constexpr uint64_t MAX_ON_DEMAND_HASH_BYTES = 4 * 1024 * 1024;
-  HalFile file;
-  if (Storage.openFileForRead("ASK", path, file) && file) {
-    if (file.size() > MAX_ON_DEMAND_HASH_BYTES) {
-      LOG_INF("ASK", "book %u bytes: skipping on-demand fingerprint, uncited Q&A", static_cast<unsigned>(file.size()));
-      return;
-    }
+  // First fingerprint of an SD-copied book. The waiting frame is already up,
+  // so hash behind it and repaint progress instead of falling back silently:
+  // the read loop yields and feeds the watchdog per 16 KB chunk, and the
+  // sidecar makes this a one-time cost. The old 4 MB cap meant a large book
+  // that *was* indexed on the relay stayed "not indexed" on the device
+  // forever, because the id was never computed.
+  identifyingBook_ = true;
+  identifyPercent_ = 0;
+  requestUpdate(true);
+  const std::string id = getBookId(path, &AskAiActivity::hashProgress, this);
+  identifyingBook_ = false;
+  requestUpdate(true);
+  if (id.empty()) {
+    uncitedNotice_ = StrId::STR_AI_IDENTIFY_FAILED;
+    return;
   }
+  std::snprintf(bookId_, sizeof(bookId_), "%s", id.c_str());
+}
 
-  const std::string id = getBookId(path);
-  if (!id.empty()) {
-    std::snprintf(bookId_, sizeof(bookId_), "%s", id.c_str());
-  }
+void AskAiActivity::hashProgress(void* ctx, const uint8_t percent) {
+  auto* self = static_cast<AskAiActivity*>(ctx);
+  self->identifyPercent_ = percent;
+  LOG_DBG("ASK", "identifying book: %u%%", static_cast<unsigned>(percent));
+  // loop() is the task doing the hashing, so its deferred requestUpdate()
+  // would not run until the hash finished. Notify the render task directly;
+  // the hash loop yields after every chunk, so the frame can paint.
+  self->requestUpdate(true);
 }
 
 void AskAiActivity::addPassageSpan(const EpubPassage::Ref ref, const uint32_t charStart, const uint32_t charEnd) {
@@ -521,19 +632,20 @@ void AskAiActivity::beginRelayAsk() {
     fail(tr(STR_VOICE_RELAY_NOT_CONFIGURED));
     return;
   }
-  // Paint the waiting screen and wait for the frame: the work below (SD hash,
-  // passage decode, then a blocking LLM turn) cannot repaint mid-way.
+  // Paint the waiting screen and wait for the frame: SD fingerprinting and
+  // passage extraction report progress before the network worker starts.
   state_ = State::Asking;
   requestUpdateAndWait();
 
   // Resolve the citation context behind the waiting frame (hashing a large
-  // book can take a second or two on SD). An empty id means this file is not
-  // in the relay library, so the round degrades to uncited /chat Q&A.
+  // book can take a while on SD, so it reports progress). An empty id means
+  // this file could not be identified; the relay's own reply then decides
+  // whether the book is missing or merely still indexing.
   ensureBookId();
   collectQueryPassages();
   if (bookId_[0] == '\0') {
     LOG_INF("ASK", "book id unavailable: uncited Q&A");
-    beginChat();
+    beginChat(uncitedNotice_);
     return;
   }
 
@@ -542,60 +654,65 @@ void AskAiActivity::beginRelayAsk() {
   beginReaderQuery();
 }
 
-void AskAiActivity::beginChat() {
+void AskAiActivity::cancelRelayRequest() {
+  if (relayRequest_ == nullptr) return;
+  relayRequest_->cancel.store(true, std::memory_order_relaxed);
+  relayRequest_.reset();
+  relayDeadlineMs_ = 0;
+  LOG_INF("ASK", "relay request cancelled; late output will be discarded");
+}
+
+void AskAiActivity::beginChat(const StrId notice) {
   if (!buildPrompt()) {
     fail(tr(STR_ASK_NO_TEXT));
     return;
   }
-  if (relayReply_ == nullptr) {
-    relayReply_ = makeUniqueNoThrow<char[]>(VoiceRelay::CHAT_TEXT_CAP + 1);
-    if (relayReply_ == nullptr) {
-      LOG_ERR("ASK", "OOM: relay reply buffer %u bytes", static_cast<unsigned>(VoiceRelay::CHAT_TEXT_CAP + 1));
-      fail(tr(STR_MIC_OOM));
-      return;
-    }
-  }
 
-  bool truncated = false;
-  VoiceRelay::ChatClient::Stats stats;
-  const VoiceRelay::ChatClient::Result result = VoiceRelay::ChatClient::ask(
-      CLOUD_CFG.relayUrl, CLOUD_CFG.relayToken, CLOUD_CFG.relayDeviceId, prompt_.get(), relayReply_.get(),
-      VoiceRelay::CHAT_TEXT_CAP + 1, truncated, /*strokesOut=*/nullptr, /*strokesCap=*/0, /*mode=*/nullptr, &stats);
-  if (result != VoiceRelay::ChatClient::Result::Ok) {
-    LOG_ERR("ASK", "relay chat failed: %s (http %d)", VoiceRelay::ChatClient::resultName(result), stats.httpStatus);
-    fail(tr(STR_VOICE_RELAY_FAILED));
+  auto job = std::shared_ptr<RelayRequest>(new (std::nothrow) RelayRequest());
+  if (!job) {
+    fail(tr(STR_MIC_OOM));
     return;
   }
-  if (truncated) {
-    LOG_ERR("ASK", "relay reply truncated at %u bytes", static_cast<unsigned>(VoiceRelay::CHAT_TEXT_CAP));
+  job->kind = RelayRequest::Kind::Chat;
+  job->notice = notice;
+  auto* data = static_cast<ChatRequestData*>(heap_caps_malloc(sizeof(ChatRequestData), MALLOC_CAP_SPIRAM));
+  if (data == nullptr) {
+    data =
+        static_cast<ChatRequestData*>(heap_caps_malloc(sizeof(ChatRequestData), MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT));
   }
-  LOG_INF("ASK", "relay reply %u bytes (http %d)", static_cast<unsigned>(stats.responseBytes), stats.httpStatus);
-  uncited_ = true;    // unindexed book: the answer carries no book citations
-  answerScroll_ = 0;  // a new reply starts at its first line
-  saveRecord();
-  state_ = State::Answer;
-  // Chapter-end discussion is an invitation to read and think, never to start
-  // speaking on its own (V1-07 boundary). The reader can still start read-aloud
-  // deliberately elsewhere.
-  if (!chapterDiscussionMode_) voice_.start(relayReply_.get());
-  requestUpdate();
+  if (data == nullptr) {
+    LOG_ERR("ASK", "OOM: chat request %u bytes", static_cast<unsigned>(sizeof(ChatRequestData)));
+    fail(tr(STR_MIC_OOM));
+    return;
+  }
+  new (data) ChatRequestData{};
+  job->data = data;
+  snprintf(data->url, sizeof(data->url), "%s", CLOUD_CFG.relayUrl);
+  snprintf(data->token, sizeof(data->token), "%s", CLOUD_CFG.relayToken);
+  snprintf(data->deviceId, sizeof(data->deviceId), "%s", CLOUD_CFG.relayDeviceId);
+  snprintf(data->prompt, sizeof(data->prompt), "%s", prompt_.get());
+
+  job->reply = static_cast<char*>(heap_caps_malloc(VoiceRelay::CHAT_TEXT_CAP + 1, MALLOC_CAP_SPIRAM));
+  if (job->reply == nullptr) {
+    job->reply =
+        static_cast<char*>(heap_caps_malloc(VoiceRelay::CHAT_TEXT_CAP + 1, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT));
+  }
+  if (job->reply == nullptr) {
+    LOG_ERR("ASK", "OOM: relay reply buffer %u bytes", static_cast<unsigned>(VoiceRelay::CHAT_TEXT_CAP + 1));
+    fail(tr(STR_MIC_OOM));
+    return;
+  }
+  job->reply[0] = '\0';
+  if (!startRelayRequest(job)) {
+    LOG_ERR("ASK", "relay chat task create failed");
+    fail(tr(STR_MIC_OOM));
+    return;
+  }
+  relayRequest_ = std::move(job);
+  relayDeadlineMs_ = millis() + VoiceRelay::ChatClient::TOTAL_TIMEOUT_MS;
 }
 
 void AskAiActivity::beginReaderQuery() {
-  if (queryResponse_ == nullptr) {
-    queryResponse_ =
-        static_cast<ReaderQuery::Response*>(heap_caps_malloc(sizeof(ReaderQuery::Response), MALLOC_CAP_SPIRAM));
-    if (queryResponse_ == nullptr) {
-      queryResponse_ = static_cast<ReaderQuery::Response*>(
-          heap_caps_malloc(sizeof(ReaderQuery::Response), MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT));
-    }
-    if (queryResponse_ == nullptr) {
-      LOG_ERR("ASK", "OOM: ReaderQuery::Response %u bytes", static_cast<unsigned>(sizeof(ReaderQuery::Response)));
-      fail(tr(STR_MIC_OOM));
-      return;
-    }
-  }
-
   int idCount = 0;
   for (auto& id : queryPassageIds_) id[0] = '\0';
   for (int i = 0; i < queryPassageCount_; ++i) {
@@ -612,32 +729,155 @@ void AskAiActivity::beginReaderQuery() {
   const char* selectedText = "";
   if (scope_ == Scope::Range && ensureSelectedText()) selectedText = querySelectedText_;
 
-  ReaderQuery::Request request;
-  request.bookId = bookId_;
-  request.spineIndex = spineIndex_;
-  request.passageIds = queryPassageIdPtrs_;
-  request.passageIdCount = static_cast<size_t>(idCount);
-  request.selectedText = selectedText;
-  request.question = question_;
-  request.intent = intent_;
-  request.contextScope = contextScopeName();
-  request.language = queryLanguage();
+  auto job = std::shared_ptr<RelayRequest>(new (std::nothrow) RelayRequest());
+  if (!job) {
+    fail(tr(STR_MIC_OOM));
+    return;
+  }
+  job->kind = RelayRequest::Kind::Query;
+  auto* data = static_cast<QueryRequestData*>(heap_caps_malloc(sizeof(QueryRequestData), MALLOC_CAP_SPIRAM));
+  if (data == nullptr) {
+    data = static_cast<QueryRequestData*>(
+        heap_caps_malloc(sizeof(QueryRequestData), MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT));
+  }
+  if (data == nullptr) {
+    LOG_ERR("ASK", "OOM: reader query request %u bytes", static_cast<unsigned>(sizeof(QueryRequestData)));
+    fail(tr(STR_MIC_OOM));
+    return;
+  }
+  new (data) QueryRequestData{};
+  job->data = data;
+  snprintf(data->url, sizeof(data->url), "%s", CLOUD_CFG.relayUrl);
+  snprintf(data->token, sizeof(data->token), "%s", CLOUD_CFG.relayToken);
+  snprintf(data->deviceId, sizeof(data->deviceId), "%s", CLOUD_CFG.relayDeviceId);
+  snprintf(data->bookId, sizeof(data->bookId), "%s", bookId_);
+  snprintf(data->question, sizeof(data->question), "%s", question_);
+  snprintf(data->selectedText, sizeof(data->selectedText), "%s", selectedText);
+  snprintf(data->intent, sizeof(data->intent), "%s", intent_);
+  snprintf(data->contextScope, sizeof(data->contextScope), "%s", contextScopeName());
+  snprintf(data->language, sizeof(data->language), "%s", queryLanguage());
+  for (int i = 0; i < idCount; ++i) {
+    snprintf(data->passageIds[i], sizeof(data->passageIds[i]), "%s", queryPassageIds_[i]);
+    data->passagePtrs[i] = data->passageIds[i];
+  }
+  data->request.bookId = data->bookId;
+  data->request.spineIndex = spineIndex_;
+  data->request.passageIds = data->passagePtrs;
+  data->request.passageIdCount = static_cast<size_t>(idCount);
+  data->request.selectedText = data->selectedText;
+  data->request.question = data->question;
+  data->request.intent = data->intent;
+  data->request.contextScope = data->contextScope;
+  data->request.language = data->language;
 
-  ReaderQuery::Client::Stats stats;
-  const ReaderQuery::Client::Result result = ReaderQuery::Client::ask(
-      CLOUD_CFG.relayUrl, CLOUD_CFG.relayToken, CLOUD_CFG.relayDeviceId, request, *queryResponse_, &stats);
-  if (result != ReaderQuery::Client::Result::Ok) {
-    if (result == ReaderQuery::Client::Result::NotIndexed) {
-      // The file exists locally but the relay has no ready copy (SD-copied
-      // book, or a stale cache with drifted passage ids). Degrade to the
-      // uncited Q&A path and say so on screen.
-      LOG_INF("ASK", "book %s not indexed on relay: falling back to uncited chat", bookId_);
-      beginChat();
+  job->response =
+      static_cast<ReaderQuery::Response*>(heap_caps_malloc(sizeof(ReaderQuery::Response), MALLOC_CAP_SPIRAM));
+  if (job->response == nullptr) {
+    job->response = static_cast<ReaderQuery::Response*>(
+        heap_caps_malloc(sizeof(ReaderQuery::Response), MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT));
+  }
+  if (job->response == nullptr) {
+    LOG_ERR("ASK", "OOM: ReaderQuery::Response %u bytes", static_cast<unsigned>(sizeof(ReaderQuery::Response)));
+    fail(tr(STR_MIC_OOM));
+    return;
+  }
+  new (job->response) ReaderQuery::Response{};
+  if (!startRelayRequest(job)) {
+    LOG_ERR("ASK", "reader query task create failed");
+    fail(tr(STR_MIC_OOM));
+    return;
+  }
+  relayRequest_ = std::move(job);
+  relayDeadlineMs_ = millis() + ReaderQuery::Client::TOTAL_TIMEOUT_MS;
+}
+
+void AskAiActivity::handleRelayCompletion() {
+  if (state_ != State::Asking || relayRequest_ == nullptr) return;
+  if (relayRequest_->timedOut.load(std::memory_order_acquire)) {
+    relayRequest_->cancel.store(true, std::memory_order_release);
+    LOG_ERR("ASK", "%s request timed out; late output will be discarded",
+            relayRequest_->kind == RelayRequest::Kind::Query ? "reader query" : "relay chat");
+    if (relayRequest_->workerFinished.load(std::memory_order_acquire)) relayRequest_.reset();
+    fail(tr(STR_AI_REQUEST_TIMEOUT));
+    return;
+  }
+  if (!relayRequest_->done.load(std::memory_order_acquire)) return;
+  auto job = std::move(relayRequest_);
+  relayDeadlineMs_ = 0;
+
+  if (job->kind == RelayRequest::Kind::Chat) {
+    const auto result = job->chatResult;
+    const auto stats = job->chatStats;
+    if (result == VoiceRelay::ChatClient::Result::Cancelled) return;
+    if (result != VoiceRelay::ChatClient::Result::Ok) {
+      LOG_ERR("ASK", "relay chat failed: %s (http %d)", VoiceRelay::ChatClient::resultName(result), stats.httpStatus);
+      fail(result == VoiceRelay::ChatClient::Result::Timeout ? tr(STR_AI_REQUEST_TIMEOUT) : tr(STR_VOICE_RELAY_FAILED));
       return;
+    }
+    if (relayReply_ == nullptr) {
+      relayReply_ = makeUniqueNoThrow<char[]>(VoiceRelay::CHAT_TEXT_CAP + 1);
+      if (relayReply_ == nullptr) {
+        LOG_ERR("ASK", "OOM: relay reply buffer %u bytes", static_cast<unsigned>(VoiceRelay::CHAT_TEXT_CAP + 1));
+        fail(tr(STR_MIC_OOM));
+        return;
+      }
+    }
+    memcpy(relayReply_.get(), job->reply, strlen(job->reply) + 1);
+    if (job->truncated) {
+      LOG_ERR("ASK", "relay reply truncated at %u bytes", static_cast<unsigned>(VoiceRelay::CHAT_TEXT_CAP));
+    }
+    LOG_INF("ASK", "relay reply %u bytes (http %d)", static_cast<unsigned>(stats.responseBytes), stats.httpStatus);
+    uncited_ = true;
+    uncitedNotice_ = job->notice;
+    answerScroll_ = 0;
+    saveRecord();
+    state_ = State::Answer;
+    if (!chapterDiscussionMode_) voice_.start(relayReply_.get());
+    requestUpdate();
+    return;
+  }
+
+  const auto result = job->queryResult;
+  const auto stats = job->queryStats;
+  if (result == ReaderQuery::Client::Result::Cancelled) return;
+  if (queryResponse_ == nullptr) {
+    queryResponse_ =
+        static_cast<ReaderQuery::Response*>(heap_caps_malloc(sizeof(ReaderQuery::Response), MALLOC_CAP_SPIRAM));
+    if (queryResponse_ == nullptr) {
+      queryResponse_ = static_cast<ReaderQuery::Response*>(
+          heap_caps_malloc(sizeof(ReaderQuery::Response), MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT));
+    }
+    if (queryResponse_ == nullptr) {
+      LOG_ERR("ASK", "OOM: ReaderQuery::Response %u bytes", static_cast<unsigned>(sizeof(ReaderQuery::Response)));
+      fail(tr(STR_MIC_OOM));
+      return;
+    }
+  }
+  *queryResponse_ = *job->response;
+  if (result != ReaderQuery::Client::Result::Ok) {
+    switch (result) {
+      case ReaderQuery::Client::Result::NotUploaded:
+        LOG_INF("ASK", "book %s not uploaded: falling back to uncited chat", bookId_);
+        beginChat(StrId::STR_AI_NOT_UPLOADED);
+        return;
+      case ReaderQuery::Client::Result::Indexing:
+        LOG_INF("ASK", "book %s still indexing: falling back to uncited chat", bookId_);
+        beginChat(StrId::STR_AI_INDEXING);
+        return;
+      case ReaderQuery::Client::Result::PassageMissing:
+        LOG_INF("ASK", "book %s passage ids missing: falling back to uncited chat", bookId_);
+        beginChat(StrId::STR_AI_PASSAGE_MISMATCH);
+        return;
+      case ReaderQuery::Client::Result::LibraryUnavailable:
+        LOG_INF("ASK", "relay library route unavailable: falling back to uncited chat");
+        beginChat(StrId::STR_AI_LIBRARY_UNAVAILABLE);
+        return;
+      default:
+        break;
     }
     LOG_ERR("ASK", "reader query failed: %s (http %d, %u bytes)", ReaderQuery::Client::resultName(result),
             stats.httpStatus, static_cast<unsigned>(stats.responseBytes));
-    fail(tr(STR_VOICE_RELAY_FAILED));
+    fail(result == ReaderQuery::Client::Result::Timeout ? tr(STR_AI_REQUEST_TIMEOUT) : tr(STR_VOICE_RELAY_FAILED));
     return;
   }
 
@@ -699,6 +939,15 @@ void AskAiActivity::composeQueryAnswer() {
     append("]\n");
   };
 
+  if ((queryResponse_->warnings & ReaderQuery::WARN_MODEL_OUTPUT_NOT_JSON) != 0) {
+    // The relay's parser could not recover any segments and wrapped the raw
+    // model text (often a malformed JSON object) as inference. Showing that
+    // verbatim is worse than asking for one more try.
+    append(tr(STR_AI_MODEL_OUTPUT_UNSTRUCTURED));
+    LOG_INF("ASK", "model output was not structured; showing retry notice");
+    return;
+  }
+
   if ((queryResponse_->warnings & ReaderQuery::WARN_CITATION_DROPPED) != 0) {
     appendLabel(StrId::STR_AI_CITATION_DROPPED);
     append("\n");
@@ -757,7 +1006,7 @@ void AskAiActivity::composeQueryAnswer() {
 }
 
 const char* AskAiActivity::answerText() const {
-  if (queryText_ != nullptr) return queryText_;
+  if (!uncited_ && queryText_ != nullptr) return queryText_;
   return relayReply_ != nullptr ? relayReply_.get() : "";
 }
 
@@ -1058,6 +1307,16 @@ void AskAiActivity::fail(const char* reason) {
 
 void AskAiActivity::loop() {
   voice_.tick();
+  // esp_http_client_read() can stay inside one transport read while a peer
+  // trickles bytes, so the worker's between-read checks alone are not a hard
+  // deadline. Expire the visible round here and let the worker unwind later.
+  if (state_ == State::Asking && relayRequest_ != nullptr && relayDeadlineMs_ != 0 &&
+      !relayRequest_->done.load(std::memory_order_acquire) && static_cast<int32_t>(millis() - relayDeadlineMs_) >= 0) {
+    relayRequest_->timedOut.store(true, std::memory_order_release);
+    relayRequest_->cancel.store(true, std::memory_order_release);
+    relayRequest_->done.store(true, std::memory_order_release);
+  }
+  handleRelayCompletion();
 
   // Chapter-end entry: the first frame is already the waiting screen, so the
   // network detour (or the blocking round, when Wi-Fi is up) starts on this
@@ -1074,10 +1333,9 @@ void AskAiActivity::loop() {
   const auto prevKey = navSwapped ? MappedInputManager::Button::Right : MappedInputManager::Button::Left;
   const auto nextKey = navSwapped ? MappedInputManager::Button::Left : MappedInputManager::Button::Right;
 
-  // Back leaves from any state (the round trip keeps running on the
-  // process-wide socket and onExit() drops the notifier that points here),
-  // except in the range picker: that steps back to the question list — the
-  // lines are already extracted and the user may pick another preset.
+  // Back leaves from any state. During Asking it cancels the worker; its bounded
+  // socket call may finish later, but the activity no longer owns that result.
+  // The range picker is the exception: it steps back to the question list.
   //
   // The finish itself runs on the release edge (EpubReaderMenu's rule): the
   // reader also treats a Back release as "go home", so finishing on the press
@@ -1141,7 +1399,7 @@ void AskAiActivity::loop() {
                                            mappedInput.wasPressed(MappedInputManager::Button::Power))) {
       // The record is already written; open the citation picker when there is
       // one, otherwise back to the picker for another question.
-      if (queryResponse_ != nullptr && queryResponse_->citationCount > 0) {
+      if (!uncited_ && queryResponse_ != nullptr && queryResponse_->citationCount > 0) {
         openCitations();
       } else {
         voice_.stop();
@@ -1163,7 +1421,7 @@ void AskAiActivity::loop() {
       return;
     }
     if (mappedInput.wasPressed(MappedInputManager::Button::Down) || mappedInput.wasPressed(nextKey)) {
-      if (citationCursor_ + 1 < queryResponse_->citationCount) {
+      if (!uncited_ && queryResponse_ != nullptr && citationCursor_ + 1 < queryResponse_->citationCount) {
         citationCursor_++;
         citationError_ = nullptr;
         requestUpdate();
@@ -1444,9 +1702,17 @@ void AskAiActivity::render(RenderLock&&) {
     }
 
     case State::Asking: {
-      // Painted once, just before the blocking relay call; the e-ink panel
-      // holds it until the reply settles.
-      renderer.drawText(UI_10_FONT_ID, left, y, tr(STR_VOICE_RELAY_WAITING), true, EpdFontFamily::BOLD);
+      // Painted just before the blocking relay call; the e-ink panel holds it
+      // until the reply settles. A large first fingerprint reports progress
+      // here instead of leaving the reader staring at an unexplained wait.
+      char status[96];
+      if (identifyingBook_) {
+        std::snprintf(status, sizeof(status), "%s %u%%", tr(STR_AI_IDENTIFYING),
+                      static_cast<unsigned>(identifyPercent_));
+      } else {
+        std::snprintf(status, sizeof(status), "%s", tr(STR_VOICE_RELAY_WAITING));
+      }
+      renderer.drawText(UI_10_FONT_ID, left, y, status, true, EpdFontFamily::BOLD);
       y += lineHeight + metrics.verticalSpacing;
       for (const auto& line : renderer.wrappedText(UI_10_FONT_ID, question_, textWidth, 3)) {
         renderer.drawText(UI_10_FONT_ID, left, y, line.c_str());
@@ -1493,7 +1759,7 @@ void AskAiActivity::render(RenderLock&&) {
       CompanionUi::drawSectionLabel(renderer, left, y, textWidth, tr(STR_COMPANION_BUDDY_SAYS));
       y += lineHeight + 4;
       if (uncited_) {
-        for (const auto& line : renderer.wrappedText(UI_10_FONT_ID, tr(STR_AI_UNCITED), textWidth, 2)) {
+        for (const auto& line : renderer.wrappedText(UI_10_FONT_ID, I18N.get(uncitedNotice_), textWidth, 3)) {
           renderer.drawText(UI_10_FONT_ID, left, y, line.c_str(), true, EpdFontFamily::ITALIC);
           y += lineHeight;
         }
@@ -1556,7 +1822,7 @@ void AskAiActivity::render(RenderLock&&) {
       top += metrics.verticalSpacing;
 
       const int contentHeight = pageHeight - top - metrics.buttonHintsHeight - metrics.verticalSpacing * 2;
-      if (queryResponse_->citationCount == 0 || contentHeight <= 0) break;
+      if (uncited_ || queryResponse_ == nullptr || queryResponse_->citationCount == 0 || contentHeight <= 0) break;
 
       // One quote at a time, set as an editorial pull-quote rather than a
       // clipped list row: the sentence the answer rests on is the whole point

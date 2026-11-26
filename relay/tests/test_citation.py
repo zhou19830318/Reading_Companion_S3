@@ -145,10 +145,53 @@ def test_fenced_json_is_parsed():
 def test_json_with_prose_preamble_is_parsed():
     text = "好的，下面是回答：\n" + json.dumps(
         {"segments": [{"source": "inference", "text": "推断。"}]}, ensure_ascii=False
-    ) + "\n希望有帮助。"
+    )
     segments, warnings = parse_model_output(text, allowed=ALLOWED)
     assert warnings == []
     assert segments[0]["source"] == "inference"
+
+
+def test_json_with_extra_closing_bracket_is_salvaged():
+    # qwen-flash occasionally emits one extra "]" after an otherwise complete
+    # object. The old substring fallback replayed the whole string as raw
+    # inference text, which the device then showed to the reader verbatim.
+    payload = {
+        "segments": [
+            {
+                "source": "book",
+                "text": "开头一句。",
+                "citations": [{"passage_id": PID, "quote": "山间的书店有一盏灯。"}],
+            }
+        ]
+    }
+    text = json.dumps(payload, ensure_ascii=False) + "]}"
+    segments, warnings = parse_model_output(text, allowed=ALLOWED)
+    assert warnings == []
+    assert segments[0]["source"] == "book"
+    assert segments[0]["citations"][0]["passage_id"] == PID
+
+
+def test_json_followed_by_second_json_is_not_salvaged():
+    first = json.dumps({"answer": "第一段"}, ensure_ascii=False)
+    second = json.dumps({"answer": "第二段"}, ensure_ascii=False)
+    segments, warnings = parse_model_output(f"{first}\n{second}", allowed=ALLOWED)
+    assert warnings == ["MODEL_OUTPUT_NOT_JSON"]
+    assert "第一段" in segments[0]["text"]
+    assert "第二段" in segments[0]["text"]
+
+
+def test_json_followed_by_error_is_not_salvaged():
+    text = json.dumps({"answer": "不完整回答"}, ensure_ascii=False) + "\nERROR: upstream disconnected"
+    segments, warnings = parse_model_output(text, allowed=ALLOWED)
+    assert warnings == ["MODEL_OUTPUT_NOT_JSON"]
+    assert "ERROR: upstream disconnected" in segments[0]["text"]
+
+
+def test_json_with_prose_epilogue_is_not_salvaged():
+    text = json.dumps({"answer": "回答"}, ensure_ascii=False) + "\n希望有帮助。"
+    segments, warnings = parse_model_output(text, allowed=ALLOWED)
+    assert warnings == ["MODEL_OUTPUT_NOT_JSON"]
+    assert "希望有帮助" in segments[0]["text"]
 
 
 def test_non_json_falls_back_to_single_inference_segment():

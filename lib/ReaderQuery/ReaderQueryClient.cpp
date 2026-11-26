@@ -40,44 +40,65 @@ Scratch allocScratch(const size_t size) {
   return Scratch(p);
 }
 
-bool writeAll(esp_http_client_handle_t client, const char* data, const size_t len) {
+bool stopRequested(const std::atomic<bool>* cancel, const uint32_t started, Client::Result& reason) {
+  if (cancel != nullptr && cancel->load(std::memory_order_relaxed)) {
+    reason = Client::Result::Cancelled;
+    return true;
+  }
+  if (static_cast<uint32_t>(millis() - started) >= Client::TOTAL_TIMEOUT_MS) {
+    reason = Client::Result::Timeout;
+    return true;
+  }
+  return false;
+}
+
+Client::Result writeAll(esp_http_client_handle_t client, const char* data, const size_t len,
+                        const std::atomic<bool>* cancel, const uint32_t started) {
   size_t sent = 0;
   while (sent < len) {
+    Client::Result reason = Client::Result::Ok;
+    if (stopRequested(cancel, started, reason)) return reason;
     const int n = esp_http_client_write(client, data + sent, static_cast<int>(len - sent));
-    if (n <= 0) return false;
+    if (n <= 0) {
+      if (stopRequested(cancel, started, reason)) return reason;
+      return Client::Result::Http;
+    }
     sent += static_cast<size_t>(n);
   }
-  return true;
+  return Client::Result::Ok;
 }
 
 Client::Result mapErrorBody(const int status, const char* body) {
-  if (status == 401 || std::strstr(body, "UNAUTHORIZED") != nullptr ||
-      std::strstr(body, "DEVICE_NOT_ALLOWED") != nullptr) {
-    return Client::Result::Auth;
+  switch (classifyHttpError(status, body)) {
+    case ErrorKind::Auth:
+      return Client::Result::Auth;
+    case ErrorKind::NotUploaded:
+      return Client::Result::NotUploaded;
+    case ErrorKind::Indexing:
+      return Client::Result::Indexing;
+    case ErrorKind::PassageMissing:
+      return Client::Result::PassageMissing;
+    case ErrorKind::LibraryUnavailable:
+      return Client::Result::LibraryUnavailable;
+    case ErrorKind::Upstream:
+      return Client::Result::Upstream;
+    case ErrorKind::Other:
+      return Client::Result::Http;
   }
-  if (std::strstr(body, "BOOK_NOT_FOUND") != nullptr || std::strstr(body, "BOOK_NOT_READY") != nullptr ||
-      std::strstr(body, "PASSAGE_NOT_FOUND") != nullptr) {
-    return Client::Result::NotIndexed;
-  }
-  // A relay deployed before the AI-native library API answers 404 for the
-  // route itself. Treat it like "not indexed" so the device still gets an
-  // uncited /chat answer instead of a dead end.
-  if (status == 404) return Client::Result::NotIndexed;
-  if (std::strstr(body, "LLM_") != nullptr || std::strstr(body, "RATE_LIMITED") != nullptr ||
-      std::strstr(body, "OVERLOADED") != nullptr || status == 502) {
-    return Client::Result::Upstream;
-  }
-  return status >= 500 ? Client::Result::Upstream : Client::Result::Http;
+  return Client::Result::Http;
 }
 
 }  // namespace
 
 Client::Result Client::ask(const char* url, const char* token, const char* deviceId, const Request& request,
-                           Response& response, Stats* stats) {
+                           Response& response, Stats* stats, const std::atomic<bool>* cancel) {
+  const uint32_t started = millis();
+  Client::Result reason = Client::Result::Ok;
   if (stats != nullptr) *stats = Stats{};
   if (url == nullptr || token == nullptr || deviceId == nullptr || request.bookId == nullptr) {
     return Result::BadConfig;
   }
+  if (stopRequested(cancel, started, reason)) return reason;
   if (!WiFi.isConnected()) return Result::NoWifi;
   const VoiceRelay::ParsedUrl parsed = VoiceRelay::parseRelayUrl(url);
   if (!parsed.valid || token[0] == '\0' || deviceId[0] == '\0' || std::strlen(token) >= AUTH_CAP - 8) {
@@ -133,25 +154,45 @@ Client::Result Client::ask(const char* url, const char* token, const char* devic
   esp_http_client_set_header(client, "X-Device-Id", deviceId);
 
   LOG_INF("RQ", "POST %s (%u body bytes)", httpUrl, static_cast<unsigned>(reqLen));
+  if (stopRequested(cancel, started, reason)) {
+    esp_http_client_cleanup(client);
+    return reason;
+  }
   if (esp_http_client_open(client, static_cast<int64_t>(reqLen)) != ESP_OK) {
     LOG_ERR("RQ", "open failed");
     esp_http_client_cleanup(client);
+    if (stopRequested(cancel, started, reason)) return reason;
     return Result::Connect;
   }
-  if (!writeAll(client, req.get(), reqLen)) {
-    LOG_ERR("RQ", "body write failed");
+  const Client::Result writeResult = writeAll(client, req.get(), reqLen, cancel, started);
+  if (writeResult != Client::Result::Ok) {
+    LOG_ERR("RQ", "body write failed: %s", resultName(writeResult));
     esp_http_client_cleanup(client);
-    return Result::Http;
+    return writeResult;
   }
 
   esp_http_client_fetch_headers(client);
+  if (stopRequested(cancel, started, reason)) {
+    esp_http_client_cleanup(client);
+    return reason;
+  }
   const int status = esp_http_client_get_status_code(client);
   if (stats != nullptr) stats->httpStatus = status;
 
   if (status < 200 || status >= 300) {
     size_t n = 0;
     while (n < ERROR_BODY_CAP) {
-      const int got = esp_http_client_read(client, body.get() + n, static_cast<int>(ERROR_BODY_CAP - n));
+      if (stopRequested(cancel, started, reason)) {
+        esp_http_client_cleanup(client);
+        return reason;
+      }
+      // ESP-IDF fills the requested length before returning; one-byte reads keep
+      // cancellation and the total deadline observable while a peer trickles.
+      const int got = esp_http_client_read(client, body.get() + n, 1);
+      if (stopRequested(cancel, started, reason)) {
+        esp_http_client_cleanup(client);
+        return reason;
+      }
       if (got <= 0) break;
       n += static_cast<size_t>(got);
     }
@@ -163,7 +204,21 @@ Client::Result Client::ask(const char* url, const char* token, const char* devic
 
   size_t total = 0;
   while (total < BODY_CAP - 1) {
-    const int got = esp_http_client_read(client, body.get() + total, static_cast<int>(BODY_CAP - 1 - total));
+    if (stopRequested(cancel, started, reason)) {
+      esp_http_client_cleanup(client);
+      return reason;
+    }
+    // Keep each blocking read short enough to re-check the total deadline.
+    const int got = esp_http_client_read(client, body.get() + total, 1);
+    if (stopRequested(cancel, started, reason)) {
+      esp_http_client_cleanup(client);
+      return reason;
+    }
+    if (got == -ESP_ERR_HTTP_EAGAIN) {
+      LOG_ERR("RQ", "socket read timed out after %u bytes", static_cast<unsigned>(total));
+      esp_http_client_cleanup(client);
+      return Result::Timeout;
+    }
     if (got < 0) {
       LOG_ERR("RQ", "read failed after %u bytes", static_cast<unsigned>(total));
       esp_http_client_cleanup(client);
@@ -180,6 +235,7 @@ Client::Result Client::ask(const char* url, const char* token, const char* devic
     LOG_ERR("RQ", "response exceeded %u bytes", static_cast<unsigned>(BODY_CAP));
     return Result::Read;
   }
+  if (stopRequested(cancel, started, reason)) return reason;
   if (!parseResponse(body.get(), total, requestId, response)) {
     LOG_ERR("RQ", "bad response (%u bytes)", static_cast<unsigned>(total));
     return Result::Stale;
@@ -201,6 +257,8 @@ const char* Client::resultName(const Result result) {
       return "TIME";
     case Result::Connect:
       return "CONNECT";
+    case Result::Timeout:
+      return "TIMEOUT";
     case Result::Http:
       return "HTTP";
     case Result::Auth:
@@ -213,10 +271,18 @@ const char* Client::resultName(const Result result) {
       return "OOM";
     case Result::Stale:
       return "STALE";
+    case Result::Cancelled:
+      return "CANCELLED";
     case Result::NoSegments:
       return "NO_SEGMENTS";
-    case Result::NotIndexed:
-      return "NOT_INDEXED";
+    case Result::NotUploaded:
+      return "NOT_UPLOADED";
+    case Result::Indexing:
+      return "INDEXING";
+    case Result::PassageMissing:
+      return "PASSAGE_MISSING";
+    case Result::LibraryUnavailable:
+      return "LIBRARY_UNAVAILABLE";
   }
   return "?";
 }

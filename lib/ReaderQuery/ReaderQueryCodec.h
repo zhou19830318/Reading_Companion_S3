@@ -40,6 +40,22 @@ enum Warning : uint8_t {
   WARN_TRUNCATED = 1u << 2,              // our text buffer filled first
 };
 
+// HTTP error classes that change what the Ask-AI screen says. The relay's
+// structured error body is authoritative; a bare 404 means the route itself
+// is missing (a relay older than the library API).
+enum class ErrorKind : uint8_t {
+  Auth,                // 401 / UNAUTHORIZED / DEVICE_NOT_ALLOWED
+  NotUploaded,         // BOOK_NOT_FOUND: the relay has no copy of this file
+  Indexing,            // BOOK_NOT_READY: uploaded, still parsing/indexing
+  PassageMissing,      // PASSAGE_NOT_FOUND: file/cache version mismatch
+  LibraryUnavailable,  // route-level 404: relay has no library API
+  Upstream,            // LLM_* / RATE_LIMITED / OVERLOADED / 5xx
+  Other,
+};
+
+// Classifies one non-2xx response. `body` may be empty or null.
+ErrorKind classifyHttpError(int status, const char* body);
+
 struct Citation {
   char passageId[PASSAGE_ID_CAP] = {};
   char quote[QUOTE_CAP] = {};

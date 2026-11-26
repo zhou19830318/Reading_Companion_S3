@@ -2015,6 +2015,7 @@ void EpubReaderActivity::clearPendingSpineCrossing() {
 }
 
 void EpubReaderActivity::continuePastChapterInvite() {
+  if (!chapterInviteIsReminder_) chapterInviteReminderDue_ = true;
   chapterInvitePending_ = false;
   UiSound::pageTurn(true);
   // The invite bar is only offered when a next spine exists, so this forward
@@ -2037,7 +2038,10 @@ void EpubReaderActivity::drawChapterInviteBar() const {
   renderer.fillRect(0, y, width, barHeight, true);
   const int lineHeight = renderer.getLineHeight(UI_10_FONT_ID);
   int textY = y + (barHeight - lineHeight * 2) / 2;
-  renderer.drawCenteredText(UI_10_FONT_ID, textY, tr(STR_AI_CHAPTER_INVITE), false, EpdFontFamily::BOLD);
+  renderer.drawCenteredText(
+      UI_10_FONT_ID, textY,
+      I18n::getInstance().get(chapterInviteIsReminder_ ? StrId::STR_AI_CHAPTER_REMIND : StrId::STR_AI_CHAPTER_INVITE),
+      false, EpdFontFamily::BOLD);
   renderer.drawCenteredText(UI_10_FONT_ID, textY + lineHeight, tr(STR_AI_CHAPTER_INVITE_HINT), false);
 }
 
@@ -2071,9 +2075,12 @@ void EpubReaderActivity::pageTurn(bool isForwardTurn) {
       // Offer the chapter-end bar instead of crossing. The flag lives on the
       // reader (not a child activity): the page stays on the panel and one
       // Confirm opens the normal AI picker with this chapter's position.
-      LOG_INF("ERS", "chapter_completed spine=%d (invite offered)", currentSpineIndex);
+      LOG_INF("ERS", "chapter_completed spine=%d (invite offered%s)", currentSpineIndex,
+              chapterInviteReminderDue_ ? ", reminder" : "");
       chapterInvitePending_ = true;
       chapterInviteSpine_ = currentSpineIndex;
+      chapterInviteIsReminder_ = chapterInviteReminderDue_;
+      chapterInviteReminderDue_ = false;
     } else {
       if (currentSpineIndex + 1 < epub->getSpineItemsCount()) {
         LOG_INF("ERS", "chapter_completed spine=%d", currentSpineIndex);

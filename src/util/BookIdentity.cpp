@@ -79,39 +79,56 @@ void writeSidecar(const std::string& sidecar, const char* id, const size_t size)
   if (written > 0) out.write(line, static_cast<size_t>(written));
 }
 
-std::string hashFile(HalFile& file, size_t& sizeOut) {
+std::string hashFile(HalFile& file, const size_t fileSize, size_t& sizeOut, const HashProgress onProgress,
+                     void* const ctx) {
   auto buf = makeUniqueNoThrow<uint8_t[]>(HASH_CHUNK);
   if (!buf) {
     LOG_ERR("BID", "OOM: hash buffer %u bytes", static_cast<unsigned>(HASH_CHUNK));
     return {};
   }
 
-  mbedtls_sha256_context ctx;
-  mbedtls_sha256_init(&ctx);
-  mbedtls_sha256_starts(&ctx, /*is224=*/0);
+  mbedtls_sha256_context ctxHash;
+  mbedtls_sha256_init(&ctxHash);
+  mbedtls_sha256_starts(&ctxHash, /*is224=*/0);
+
+  uint8_t lastPercent = 0;
+  if (onProgress != nullptr) onProgress(ctx, 0);
 
   size_t total = 0;
   while (true) {
     const int got = file.read(buf.get(), HASH_CHUNK);
     if (got < 0) {
       LOG_ERR("BID", "hash read failed after %u bytes", static_cast<unsigned>(total));
-      mbedtls_sha256_free(&ctx);
+      mbedtls_sha256_free(&ctxHash);
       return {};
     }
     if (got == 0) break;
-    mbedtls_sha256_update(&ctx, buf.get(), static_cast<size_t>(got));
+    mbedtls_sha256_update(&ctxHash, buf.get(), static_cast<size_t>(got));
     total += static_cast<size_t>(got);
     // The first ask on an SD-copied book can hash tens of MB. This runs on the
     // Arduino loop task (subscribed to the task watchdog) and previously held
     // it for >30 s on a 36 MB EPUB, tripping a WDT reboot that looked like a
     // hang. Yield + feed per 16 KB chunk so the UI and the watchdog stay alive.
+    if (onProgress != nullptr && fileSize > 0) {
+      uint64_t scaled = static_cast<uint64_t>(total) * 100 / fileSize;
+      if (scaled > 100) scaled = 100;
+      const uint8_t percent = static_cast<uint8_t>(scaled);
+      // Coarse steps keep the e-ink repaint cost off the hash loop while the
+      // screen still moves on a multi-second book.
+      if (percent >= lastPercent + 10 || (percent == 100 && lastPercent < 100)) {
+        lastPercent = percent;
+        onProgress(ctx, percent);
+      }
+    }
     if (esp_task_wdt_status(nullptr) == ESP_OK) esp_task_wdt_reset();
     vTaskDelay(1);
   }
 
   uint8_t digest[32];
-  mbedtls_sha256_finish(&ctx, digest);
-  mbedtls_sha256_free(&ctx);
+  mbedtls_sha256_finish(&ctxHash, digest);
+  mbedtls_sha256_free(&ctxHash);
+
+  if (onProgress != nullptr && lastPercent < 100) onProgress(ctx, 100);
 
   static constexpr char HEX_DIGITS[] = "0123456789abcdef";
   char id[ID_HEX_LEN + 1];
@@ -140,7 +157,7 @@ std::string readCachedBookId(const std::string& path) {
   return id;
 }
 
-std::string getBookId(const std::string& path) {
+std::string getBookId(const std::string& path, const HashProgress onProgress, void* const ctx) {
   const std::string sidecar = sidecarPathFor(path);
   if (sidecar.empty()) return {};
 
@@ -156,7 +173,7 @@ std::string getBookId(const std::string& path) {
   if (!cached.empty() && recordedSize == bookSize) return cached;
 
   size_t hashedSize = 0;
-  const std::string id = hashFile(book, hashedSize);
+  const std::string id = hashFile(book, bookSize, hashedSize, onProgress, ctx);
   if (id.empty()) return {};
 
   // Use the byte count actually hashed: if the file changed between the size

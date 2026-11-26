@@ -1,5 +1,6 @@
 #pragma once
 
+#include <atomic>
 #include <cstdint>
 
 // Keeps the Wi-Fi radio from staying up after the network features are done
@@ -16,8 +17,9 @@
 // activities already tear the radio down themselves (disconnect + restart);
 // they must not race this timer mid-transfer.
 //
-// Threading: every method runs on the main-loop task — activities call it from
-// onEnter()/loop(), WebSocket dispatches run inside poll() — so no locking.
+// Threading: activities and poll() run on the main-loop task. Network workers
+// may also hold()/release() while a request is in flight; both the hold count
+// and idle timestamp are atomic so the main loop cannot power down mid-request.
 class WifiIdleManager {
  public:
   static WifiIdleManager& getInstance();
@@ -48,10 +50,10 @@ class WifiIdleManager {
   static constexpr uint32_t IDLE_TIMEOUT_MS = 60000;
 
   bool armed_ = false;
-  uint8_t holds_ = 0;
+  std::atomic<uint8_t> holds_{0};
   // millis() stamp of the last arm/note/hold/release; poll() uses the
   // wraparound-safe subtraction when comparing.
-  uint32_t lastActivityMs_ = 0;
+  std::atomic<uint32_t> lastActivityMs_{0};
   void* hookCtx_ = nullptr;
   void (*hookFn_)(void*) = nullptr;
 

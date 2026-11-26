@@ -63,6 +63,10 @@ class EpubReaderActivity final : public Activity {
   // the last page.
   bool chapterInvitePending_ = false;
   int chapterInviteSpine_ = -1;
+  // One "keep reading" choice arms at most one reminder at the next chapter
+  // boundary. It is consumed when shown, even if that reminder is dismissed.
+  bool chapterInviteReminderDue_ = false;
+  bool chapterInviteIsReminder_ = false;
   // Draws the chapter-end bar over the last page. Called from renderContents()
   // so the bar is part of the same BW frame as the page (no second refresh).
   void drawChapterInviteBar() const;

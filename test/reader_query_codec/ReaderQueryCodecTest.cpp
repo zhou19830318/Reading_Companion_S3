@@ -166,4 +166,17 @@ TEST(ReaderQueryResponse, UnknownSourceFallsBackToInference) {
   EXPECT_EQ(Source::Inference, response->segments[0].source);
 }
 
+TEST(ReaderQueryError, SeparatesLibraryStates) {
+  using ReaderQuery::ErrorKind;
+  EXPECT_EQ(ErrorKind::NotUploaded, ReaderQuery::classifyHttpError(404, R"({"error":{"code":"BOOK_NOT_FOUND"}})"));
+  EXPECT_EQ(ErrorKind::Indexing, ReaderQuery::classifyHttpError(409, R"({"error":{"code":"BOOK_NOT_READY"}})"));
+  EXPECT_EQ(ErrorKind::PassageMissing,
+            ReaderQuery::classifyHttpError(404, R"({"error":{"code":"PASSAGE_NOT_FOUND"}})"));
+  EXPECT_EQ(ErrorKind::LibraryUnavailable, ReaderQuery::classifyHttpError(404, R"({"detail":"Not Found"})"));
+  EXPECT_EQ(ErrorKind::LibraryUnavailable, ReaderQuery::classifyHttpError(404, ""));
+  EXPECT_EQ(ErrorKind::Auth, ReaderQuery::classifyHttpError(401, ""));
+  EXPECT_EQ(ErrorKind::Upstream, ReaderQuery::classifyHttpError(502, R"({"error":{"code":"LLM_TIMEOUT"}})"));
+  EXPECT_EQ(ErrorKind::Other, ReaderQuery::classifyHttpError(400, R"({"error":{"code":"BAD_REQUEST"}})"));
+}
+
 }  // namespace

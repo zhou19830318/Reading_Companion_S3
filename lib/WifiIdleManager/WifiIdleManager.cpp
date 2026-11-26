@@ -22,19 +22,23 @@ void WifiIdleManager::noteActivity() {
 }
 
 void WifiIdleManager::hold() {
-  if (holds_ < UINT8_MAX) holds_++;
-  lastActivityMs_ = millis();
+  uint8_t holds = holds_.load(std::memory_order_relaxed);
+  while (holds < UINT8_MAX && !holds_.compare_exchange_weak(holds, holds + 1, std::memory_order_relaxed)) {
+  }
+  lastActivityMs_.store(millis(), std::memory_order_relaxed);
 }
 
 void WifiIdleManager::release() {
-  if (holds_ > 0) holds_--;
-  lastActivityMs_ = millis();
+  uint8_t holds = holds_.load(std::memory_order_relaxed);
+  while (holds > 0 && !holds_.compare_exchange_weak(holds, holds - 1, std::memory_order_relaxed)) {
+  }
+  lastActivityMs_.store(millis(), std::memory_order_relaxed);
 }
 
 void WifiIdleManager::poll() {
-  if (!armed_ || holds_ > 0) return;
+  if (!armed_ || holds_.load(std::memory_order_acquire) > 0) return;
   if (WiFi.getMode() == WIFI_MODE_NULL) return;  // radio already off
-  if (static_cast<uint32_t>(millis() - lastActivityMs_) < IDLE_TIMEOUT_MS) return;
+  if (static_cast<uint32_t>(millis() - lastActivityMs_.load(std::memory_order_acquire)) < IDLE_TIMEOUT_MS) return;
   shutdown();
 }
 
