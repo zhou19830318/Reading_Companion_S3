@@ -501,9 +501,10 @@ conversations / messages / knowledge_cards / learning_*  -- 后续阶段
 1. [x] 新建 `docs/ai-native/api-v1.md`：固化 `passage_id`、`/reader/query`、`/sync/push|pull`、错误码。
 2. [x] 准备 `relay/tests/fixtures/golden_books/` 黄金测试书与段落对照表（5 本）。
 3. [x] 在 relay 建表（`library_store.py`，含 `schema_version` 与 WAL）。
-4. [ ] 在固件加 passage 映射的只读日志（不改 UI），用真机对照服务端结果。
-   - 数据模型已加，但**解析器尚未接线**、无 `test/passage_ref`；下一步是接线并补主机单测。
-5. [ ] 对照通过后，再进入 V1-07 问答 UI 与 V1-08 outbox。
+4. [x] 在固件加 passage 映射的只读日志（不改 UI），用真机对照服务端结果。
+   - 解析器与 `test/passage_ref` 已接线，真机黄金书引用与回跳通过。
+5. [x] 对照通过后，再进入 V1-07 问答 UI 与 V1-08 outbox。
+   - V1-07/V1-08 已实现并通过黄金书端到端、断网同步与重复同步验证。
 
 ---
 

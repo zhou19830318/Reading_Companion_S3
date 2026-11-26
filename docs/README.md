@@ -7,7 +7,7 @@
 - 项目愿景与范围见根目录 [SCOPE.md](../SCOPE.md)
 
 ## 开发计划
-- [AI 原生智能阅读终端 · 可行性评估与实施计划](AI原生智能阅读终端_可行性评估与实施计划.md) — V1–V4 端云分工、passage_id、结构化引用、离线同步（服务端 V1 已完成，设备端进行中）
+- [AI 原生智能阅读终端 · 可行性评估与实施计划](AI原生智能阅读终端_可行性评估与实施计划.md) — V1–V4 端云分工、passage_id、结构化引用、离线同步（V1 与 V1.1 加固已实施，正文常驻划线延后）
 - [AI 原生智能阅读终端渐进式落地任务清单](tasks/2026-11-19-ai-native-implementation.md) — 分阶段任务、验收与待决策项
 - [V1 接口与数据契约](ai-native/api-v1.md) — passage_id、/reader/query、/sync 冻结契约
 - [v4.0-development-plan.md](v4.0-development-plan.md) — v4.0 实施计划（历史，含构建/烧录流程）
