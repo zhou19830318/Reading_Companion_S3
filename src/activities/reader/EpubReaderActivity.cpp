@@ -48,6 +48,7 @@
 #include "RecentBooksStore.h"
 #include "RuledLineSettingsActivity.h"
 #include "SdCardFontSystem.h"
+#include "SummaryActivity.h"
 #include "WordCardActivity.h"
 #include "activities/learning/ReviewActivity.h"
 #include "activities/network/WifiSelectionActivity.h"
@@ -1722,6 +1723,17 @@ void EpubReaderActivity::onReaderMenuConfirm(EpubReaderMenuActivity::MenuAction 
     }
     case EpubReaderMenuActivity::MenuAction::ASK_AI: {
       launchAskAi();
+      break;
+    }
+    case EpubReaderMenuActivity::MenuAction::CHAPTER_SUMMARY:
+    case EpubReaderMenuActivity::MenuAction::BOOK_INTRO: {
+      const bool wholeBook = action == EpubReaderMenuActivity::MenuAction::BOOK_INTRO;
+      startActivityForResult(
+          std::make_unique<SummaryActivity>(renderer, mappedInput, epub->getPath(), currentSpineIndex, wholeBook),
+          [this](const ActivityResult&) {
+            ignoreNextConfirmRelease = true;
+            requestUpdate();
+          });
       break;
     }
     case EpubReaderMenuActivity::MenuAction::READ_ALOUD: {

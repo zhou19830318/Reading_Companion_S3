@@ -52,6 +52,7 @@ class Settings(BaseSettings):
     asr_endpoint: str = Field("", alias="ASR_ENDPOINT")
     asr_language_hints: str = Field("zh,en", alias="ASR_LANGUAGE_HINTS")
     asr_chunk_ms: int = Field(100, alias="ASR_CHUNK_MS")
+    asr_local_url: str = Field("http://127.0.0.1:18100/v1/asr", alias="ASR_LOCAL_URL")
 
     llm_provider: str = Field("mock", alias="LLM_PROVIDER")  # mock | dashscope
     llm_model: str = Field("qwen-flash", alias="LLM_MODEL")
@@ -224,6 +225,9 @@ class Settings(BaseSettings):
     reader_max_output_tokens: int = Field(512, alias="READER_MAX_OUTPUT_TOKENS")
     reader_max_passages: int = Field(8, alias="READER_MAX_PASSAGES")
     reader_max_selected_bytes: int = Field(4000, alias="READER_MAX_SELECTED_BYTES")
+    summary_max_output_tokens: int = Field(512, alias="SUMMARY_MAX_OUTPUT_TOKENS")
+    summary_max_output_chars: int = Field(4000, alias="SUMMARY_MAX_OUTPUT_CHARS")
+    summary_timeout_seconds: float = Field(45.0, alias="SUMMARY_TIMEOUT_SECONDS")
     sync_batch_max_ops: int = Field(50, alias="SYNC_BATCH_MAX_OPS")
 
     # --- limits / timeouts (docs section 8) --------------------------------
@@ -266,7 +270,13 @@ class Settings(BaseSettings):
     @classmethod
     def _asr_name(cls, v: str) -> str:
         # Docs section 17.4 uses ASR_PROVIDER=paraformer.
-        return {"paraformer": "dashscope", "dashscope-paraformer": "dashscope"}.get(v.lower(), v.lower())
+        return {
+            "paraformer": "dashscope",
+            "dashscope-paraformer": "dashscope",
+            "local": "local_sensevoice",
+            "sensevoice": "local_sensevoice",
+            "local-sensevoice": "local_sensevoice",
+        }.get(v.lower(), v.lower())
 
     @field_validator("llm_provider")
     @classmethod
@@ -399,7 +409,9 @@ class Settings(BaseSettings):
     def _asr_ready(self) -> bool:
         if self.asr_provider == "mock":
             return True
-        return self.asr_provider == "dashscope" and bool(self.dashscope_api_key)
+        return (self.asr_provider == "local_sensevoice" and bool(self.asr_local_url)) or (
+            self.asr_provider == "dashscope" and bool(self.dashscope_api_key)
+        )
 
     def _llm_ready(self) -> bool:
         if self.llm_provider == "mock":

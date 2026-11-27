@@ -83,8 +83,9 @@ RELAY_DEVICE_TOKEN=... python tools/load_test.py --pcm speech.pcm \
 
 ## Provider（提供方）
 
-`ASR_PROVIDER`/`LLM_PROVIDER` 取值为 `mock`（开发用，无上游）或真实的
-DashScope 适配器。真实凭据只存放在
+`ASR_PROVIDER` 支持 `mock`、`paraformer`/`dashscope`（DashScope）以及
+`local-sensevoice`（本机 `127.0.0.1:18100/v1/asr`）；`LLM_PROVIDER` 支持
+`mock` 或 DashScope。DashScope 真实凭据只存放在
 `/etc/reading-companion/voice-relay.env`（`DASHSCOPE_API_KEY`、
 `DASHSCOPE_WORKSPACE_ID`、`DASHSCOPE_REGION`）；参见
 `deploy/voice-relay.env.example`。启动日志会为每个 provider 打印完整的
@@ -347,6 +348,7 @@ V1 契约全文见 [docs/ai-native/api-v1.md](../docs/ai-native/api-v1.md)。三
 - `GET /api/v1/books/{id}`、`GET /api/v1/books/by-hash/{sha256}`：设备登记书籍身份；未入库返回 `404 BOOK_NOT_FOUND`，设备降级为无引用问答。
 - `GET /api/v1/books/{id}/processing`：`pending/parsing/indexing/ready/failed` + 进度。
 - `GET /api/v1/books/{id}/chapters`、`GET /api/v1/books/{id}/passages?spine_index=&limit=&after=`：调试与引用核对。
+- `GET /api/v1/books/{id}/summary?scope=chapter&spine_index=N`、`GET /api/v1/books/{id}/summary?scope=book`：生成或读取缓存的章节摘要 / 全书导读。同步返回纯文本；缓存键包含书籍、范围、章节、内容 revision、提示词版本与模型，命中缓存不调用模型。
 
 `passage_id = <book_id>:<spine>:<p|l><block_index>`，其中 `book_id` 是文件 SHA-256 的前 16 位；`<p>/<li>` 按 spine 文档逐个计数。规则冻结在契约文档，解析器与固件必须一致。
 

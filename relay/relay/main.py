@@ -50,6 +50,7 @@ from . import (
     pomodoro_store,
     protocol,
     reader_query,
+    summary,
     t2i,
     tts,
     weather,
@@ -1003,6 +1004,29 @@ async def reader_query_endpoint(request: Request, body: ReaderQueryBody):
         return await reader_query.answer_reader_query(store, settings, query)
     except reader_query.ReaderQueryError as exc:
         return _error(exc.status, exc.code, exc.message, body.request_id)
+
+
+@app.get("/api/v1/books/{book_id}/summary")
+async def book_summary(
+    request: Request,
+    book_id: str,
+    scope: str = "chapter",
+    spine_index: int | None = None,
+):
+    _, denied = await _require_device(request)
+    if denied is not None:
+        return denied
+    try:
+        result = await summary.generate_summary(
+            request.app.state.library,
+            get_settings(),
+            book_id=book_id,
+            scope=scope,
+            spine_index=spine_index,
+        )
+    except summary.SummaryError as exc:
+        return _error(exc.status, exc.code, exc.message)
+    return result.as_dict()
 
 
 class SyncPushBody(BaseModel):

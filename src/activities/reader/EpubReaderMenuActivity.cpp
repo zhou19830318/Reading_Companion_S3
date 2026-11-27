@@ -28,7 +28,7 @@ std::vector<EpubReaderMenuActivity::MenuItem> EpubReaderMenuActivity::buildMenuI
                                                                                      bool hasBookmarks,
                                                                                      bool hasVoiceNote) {
   std::vector<MenuItem> items;
-  items.reserve(22);
+  items.reserve(24);
   items.push_back({MenuAction::SELECT_CHAPTER, StrId::STR_SELECT_CHAPTER});
   if (hasFootnotes) {
     items.push_back({MenuAction::FOOTNOTES, StrId::STR_FOOTNOTES});
@@ -42,6 +42,8 @@ std::vector<EpubReaderMenuActivity::MenuItem> EpubReaderMenuActivity::buildMenuI
   // is unconditional: it needs no book-side data beyond the position capture
   // launchAskAi() arms itself.
   items.push_back({MenuAction::ASK_AI, StrId::STR_ASK_AI});
+  items.push_back({MenuAction::CHAPTER_SUMMARY, StrId::STR_CHAPTER_SUMMARY});
+  items.push_back({MenuAction::BOOK_INTRO, StrId::STR_BOOK_INTRO});
   items.push_back({MenuAction::READ_ALOUD, StrId::STR_READ_ALOUD});
   if (hasVoiceNote) {
     items.push_back({MenuAction::VOICE_NOTE, StrId::STR_VOICE_BOOKMARK});

@@ -28,6 +28,8 @@ class EpubReaderMenuActivity final : public Activity {
     RULED_LINE_SETTINGS,
     READER_SETTINGS,
     ASK_AI,
+    CHAPTER_SUMMARY,
+    BOOK_INTRO,
     READ_ALOUD,
     DICTIONARY,
     REVIEW,

@@ -20,7 +20,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 BOOK_STATUSES = ("pending", "parsing", "indexing", "ready", "failed")
 SYNC_TYPES = (
@@ -136,6 +136,20 @@ CREATE TABLE IF NOT EXISTS ai_results (
 );
 CREATE INDEX IF NOT EXISTS idx_ai_results_device ON ai_results (device_id, updated_at);
 
+CREATE TABLE IF NOT EXISTS summaries (
+    cache_key       TEXT PRIMARY KEY,
+    book_id         TEXT NOT NULL,
+    scope           TEXT NOT NULL,
+    spine_index     INTEGER,
+    content_revision TEXT NOT NULL,
+    prompt_version  TEXT NOT NULL,
+    model           TEXT NOT NULL,
+    title           TEXT NOT NULL DEFAULT '',
+    text            TEXT NOT NULL,
+    generated_at    TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_summaries_book ON summaries (book_id, scope, spine_index);
+
 CREATE TABLE IF NOT EXISTS sync_ops (
     op_id      TEXT PRIMARY KEY,
     device_id  TEXT NOT NULL,
@@ -175,6 +189,7 @@ class LibraryStore:
         conn.execute("PRAGMA foreign_keys=ON")
         conn.executescript(_SCHEMA)
         conn.execute("INSERT OR IGNORE INTO meta(key, value) VALUES('schema_version', ?)", (str(SCHEMA_VERSION),))
+        conn.execute("UPDATE meta SET value=? WHERE key='schema_version'", (str(SCHEMA_VERSION),))
         conn.commit()
         self._conn = conn
 
@@ -439,6 +454,43 @@ class LibraryStore:
             (book_id, spine_index),
         ).fetchall()
         return [self._passage_row(r, book_id) for r in rows]
+
+    def get_summary(self, cache_key: str) -> dict | None:
+        row = self.conn.execute("SELECT * FROM summaries WHERE cache_key=?", (cache_key,)).fetchone()
+        return dict(row) if row else None
+
+    def save_summary(
+        self,
+        *,
+        cache_key: str,
+        book_id: str,
+        scope: str,
+        spine_index: int | None,
+        content_revision: str,
+        prompt_version: str,
+        model: str,
+        title: str,
+        text: str,
+    ) -> None:
+        self.conn.execute(
+            "INSERT INTO summaries(cache_key, book_id, scope, spine_index, content_revision,"
+            " prompt_version, model, title, text, generated_at) VALUES(?,?,?,?,?,?,?,?,?,?)"
+            " ON CONFLICT(cache_key) DO UPDATE SET title=excluded.title, text=excluded.text,"
+            " generated_at=excluded.generated_at",
+            (
+                cache_key,
+                book_id,
+                scope,
+                spine_index,
+                content_revision,
+                prompt_version,
+                model,
+                title,
+                text,
+                _now(),
+            ),
+        )
+        self.conn.commit()
 
     def passage_neighbors(self, book_id: str, passage_id: str, radius: int = 1) -> list[dict]:
         row = self.conn.execute(

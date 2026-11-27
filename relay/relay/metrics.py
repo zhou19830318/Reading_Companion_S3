@@ -47,6 +47,16 @@ reader_query_ms = Histogram(
     "Reader query latency in milliseconds (retrieval + model + validation)",
     buckets=(200, 500, 1000, 2000, 4000, 8000, 15000, 30000, 60000, 120000),
 )
+summary_requests_total = Counter(
+    "summary_requests_total",
+    "Book summary requests by scope and result",
+    ["scope", "result"],
+)
+summary_latency_ms = Histogram(
+    "summary_latency_ms",
+    "Summary generation latency in milliseconds",
+    buckets=(200, 500, 1000, 2000, 4000, 8000, 15000, 30000, 60000),
+)
 t2i_requests_total = Counter(
     "t2i_requests_total",
     "Text-to-image generation requests by result",

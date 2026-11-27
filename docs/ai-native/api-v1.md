@@ -251,6 +251,32 @@ a1b2c3d4e5f60718:12:l5
 }
 ```
 
+### 3.7 `GET /api/v1/books/{book_id}/summary`
+
+生成或读取章节摘要 / 全书导读。接口同步返回，设备只展示结果；书籍必须已 `ready`。
+
+- `scope=chapter`：必须带 `spine_index`，摘要当前章节。
+- `scope=book`：不带 `spine_index`，均匀抽样最多 80 章并取每章首段生成全书导读。
+- 缓存键：`book_id + scope + spine_index + content_revision + prompt_version + model`。命中缓存不调用模型。
+- 章节正文超过 `READER_CONTEXT_CHAR_BUDGET` 时保留头尾；模型失败或超时不写缓存。
+
+```json
+{
+  "book_id": "a1b2c3d4e5f60718",
+  "scope": "chapter",
+  "spine_index": 1,
+  "title": "第二章 灯下",
+  "text": "本章讲述……",
+  "status": "ready",
+  "cache_key": "9f86d081884c7d659a2feaa0c55ad015",
+  "generated_at": "2026-11-27T00:00:00Z",
+  "model": "qwen-flash",
+  "cached": false
+}
+```
+
+错误码：`BAD_REQUEST`（400）、`BOOK_NOT_FOUND`（404）、`BOOK_NOT_READY`（409）、`PASSAGE_NOT_FOUND`（404）、`SUMMARY_TIMEOUT`（504）、`MODEL_UNAVAILABLE` / `MODEL_EMPTY_ANSWER`（502）。
+
 ---
 
 ## 4. 阅读问答

@@ -16,6 +16,10 @@ def make_asr_provider(settings: Settings) -> AsrProvider:
         from .asr_dashscope import DashScopeAsrProvider
 
         return DashScopeAsrProvider(settings)
+    if settings.asr_provider == "local_sensevoice":
+        from .local_asr import LocalSenseVoiceProvider
+
+        return LocalSenseVoiceProvider(settings)
     raise ProviderError(ErrorCode.INTERNAL_ERROR, f"unknown ASR_PROVIDER {settings.asr_provider!r}")
 
 
