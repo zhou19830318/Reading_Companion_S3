@@ -344,8 +344,8 @@ V1 契约全文见 [docs/ai-native/api-v1.md](../docs/ai-native/api-v1.md)。三
 
 ### 书籍入库与段落索引
 
-- `POST /api/v1/books`：`multipart/form-data`，字段 `file`（EPUB/TXT，默认 ≤ 64 MiB）、`title`、`author`。返回 `202`（新书）或 `200`（同 SHA-256 已存在）。解析默认后台进行。
-- `GET /api/v1/books/{id}`、`GET /api/v1/books/by-hash/{sha256}`：设备登记书籍身份；未入库返回 `404 BOOK_NOT_FOUND`，设备降级为无引用问答。
+- `POST /api/v1/books`：`multipart/form-data`，字段 `file`（EPUB/TXT，默认 ≤ 64 MiB）、`title`、`author`。返回 `202`（新书）或 `200`（同 SHA-256 已存在）。解析默认后台进行；同哈希书籍已存在时不重复解析，状态为 `failed` 时则重新入库以支持设备重试。
+- `GET /api/v1/books/{id}`、`GET /api/v1/books/by-hash/{sha256}`：设备登记书籍身份；未入库返回 `404 BOOK_NOT_FOUND`。设备摘要与引用问答收到该状态后自动 `POST /api/v1/books` 上传当前 EPUB，再轮询 `processing`。
 - `GET /api/v1/books/{id}/processing`：`pending/parsing/indexing/ready/failed` + 进度。
 - `GET /api/v1/books/{id}/chapters`、`GET /api/v1/books/{id}/passages?spine_index=&limit=&after=`：调试与引用核对。
 - `GET /api/v1/books/{id}/summary?scope=chapter&spine_index=N`、`GET /api/v1/books/{id}/summary?scope=book`：生成或读取缓存的章节摘要 / 全书导读。同步返回纯文本；缓存键包含书籍、范围、章节、内容 revision、提示词版本与模型，命中缓存不调用模型。

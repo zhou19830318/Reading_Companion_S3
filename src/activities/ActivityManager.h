@@ -113,6 +113,7 @@ class ActivityManager {
   void goToPigeon();
   void goToSleep(bool fromTimeout = false);
   void goToBoot();
+  void waitForBootAnimation();
   void goToFullScreenMessage(std::string message, EpdFontFamily::Style style = EpdFontFamily::REGULAR);
   void goToCrashReport();
   void goHome(HomeMenuItem initialMenuItem = HomeMenuItem::NONE, bool inheritCurrentTile = true);

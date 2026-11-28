@@ -319,6 +319,13 @@ void ActivityManager::goToSleep(bool fromTimeout) {
 
 void ActivityManager::goToBoot() { replaceActivity(std::make_unique<BootActivity>(renderer, mappedInput)); }
 
+void ActivityManager::waitForBootAnimation() {
+  while (currentActivity && !currentActivity->isBootAnimationComplete()) {
+    loop();
+    vTaskDelay(pdMS_TO_TICKS(1));
+  }
+}
+
 void ActivityManager::goToFullScreenMessage(std::string message, EpdFontFamily::Style style) {
   replaceActivity(std::make_unique<FullScreenMessageActivity>(renderer, mappedInput, std::move(message), style));
 }

@@ -863,7 +863,24 @@ async def upload_book(request: Request, background_tasks: BackgroundTasks):
         return _error(exc.status, exc.code, exc.message)
 
     if duplicate:
-        return JSONResponse(status_code=200, content=_upload_summary(book, duplicate=True))
+        current = store.get_book(book["book_id"]) or book
+        if current["status"] == "failed":
+            store.update_book_status(
+                current["book_id"],
+                status="pending",
+                progress=0.0,
+                chapters=0,
+                passages=0,
+            )
+            await library_api.start_ingest(
+                store,
+                current["book_id"],
+                store.books_dir / f"{current['sha256']}.{current['format']}",
+                sync=settings.book_ingest_sync,
+                background_tasks=background_tasks,
+            )
+            current = store.get_book(current["book_id"]) or current
+        return JSONResponse(status_code=200, content=_upload_summary(current, duplicate=True))
     assert path is not None
     await library_api.start_ingest(
         store,

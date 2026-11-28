@@ -52,7 +52,7 @@ Filename: "{app}\voice-relay-service.exe"; Parameters: "install"; Flags: runhidd
 Filename: "{app}\voice-relay-service.exe"; Parameters: "start"; Flags: runhidden waituntilterminated; StatusMsg: "Starting service..."
 Filename: "{sys}\netsh.exe"; Parameters: "advfirewall firewall delete rule name=""Reading Companion Voice Relay"""; Flags: runhidden
 Filename: "{sys}\netsh.exe"; Parameters: "advfirewall firewall add rule name=""Reading Companion Voice Relay"" dir=in action=allow protocol=TCP localport=8080 remoteip=localsubnet profile=private"; Flags: runhidden
-Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""for($i=0; $i -lt 30; $i++){ try { $r = Invoke-WebRequest -UseBasicParsing -TimeoutSec 2 http://127.0.0.1:8080/healthz; if ($r.StatusCode -eq 200) { New-Item -ItemType File -Force -Path '{tmp}\voice-relay-ready.txt' | Out-Null; exit 0 } } catch {} ; Start-Sleep -Seconds 1 }; exit 1"; Flags: runhidden waituntilterminated; StatusMsg: "Waiting for the relay to become ready..."
+Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""for($i=0; $i -lt 30; $i++){{ try {{ $r = Invoke-WebRequest -UseBasicParsing -TimeoutSec 2 http://127.0.0.1:8080/healthz; if ($r.StatusCode -eq 200) {{ New-Item -ItemType File -Force -Path '{tmp}\voice-relay-ready.txt' | Out-Null; exit 0 } } catch {} ; Start-Sleep -Seconds 1 }; exit 1"; Flags: runhidden waituntilterminated; StatusMsg: "Waiting for the relay to become ready..."
 Filename: "http://127.0.0.1:8080/admin"; Flags: shellexec nowait postinstall skipifsilent; Check: ServiceIsUp
 
 [UninstallRun]

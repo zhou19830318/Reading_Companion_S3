@@ -46,21 +46,28 @@
 using Notes::NoteStore;
 
 struct RelayRequest {
-  enum class Kind : uint8_t { Query, Chat };
+  enum class Kind : uint8_t { Query, Chat, Ingest };
   Kind kind = Kind::Query;
   StrId notice = StrId::STR_AI_UNCITED;
   std::atomic<bool> done{false};
   std::atomic<bool> cancel{false};
   std::atomic<bool> timedOut{false};
   std::atomic<bool> workerFinished{false};
+  std::atomic<bool> uploading{true};
+  std::atomic<uint8_t> ingestProgress{0};
   void* data = nullptr;
   ReaderQuery::Response* response = nullptr;
   char* reply = nullptr;
   ReaderQuery::Client::Result queryResult = ReaderQuery::Client::Result::BadConfig;
   VoiceRelay::ChatClient::Result chatResult = VoiceRelay::ChatClient::Result::BadConfig;
+  BookLibrary::Client::Result ingestResult = BookLibrary::Client::Result::BadConfig;
   ReaderQuery::Client::Stats queryStats;
   VoiceRelay::ChatClient::Stats chatStats;
+  BookLibrary::Client::Stats ingestStats;
+  BookLibrary::IngestResponse ingestResponse;
+  bool upload = false;
   bool truncated = false;
+  std::string bookPath;
 
   ~RelayRequest() {
     heap_caps_free(data);
@@ -174,6 +181,19 @@ struct ChatRequestData {
   char prompt[VoiceRelay::CHAT_TEXT_CAP] = {};
 };
 
+struct IngestRequestData {
+  char url[CloudConfig::RELAY_URL_SIZE] = {};
+  char token[CloudConfig::TOKEN_SIZE] = {};
+  char deviceId[CloudConfig::RELAY_DEVICE_ID_SIZE] = {};
+  char bookId[BookLibrary::BOOK_ID_CAP] = {};
+};
+
+void ingestProgress(void* ctx, const BookLibrary::Client::Progress& progress) {
+  auto* job = static_cast<RelayRequest*>(ctx);
+  job->uploading.store(progress.uploading, std::memory_order_relaxed);
+  job->ingestProgress.store(progress.percent, std::memory_order_relaxed);
+}
+
 void relayRequestTask(void* arg) {
   std::unique_ptr<std::shared_ptr<RelayRequest>> holder(static_cast<std::shared_ptr<RelayRequest>*>(arg));
   auto job = std::move(*holder);
@@ -181,6 +201,11 @@ void relayRequestTask(void* arg) {
     auto* data = static_cast<QueryRequestData*>(job->data);
     job->queryResult = ReaderQuery::Client::ask(data->url, data->token, data->deviceId, data->request, *job->response,
                                                 &job->queryStats, &job->cancel);
+  } else if (job->kind == RelayRequest::Kind::Ingest) {
+    auto* data = static_cast<IngestRequestData*>(job->data);
+    job->ingestResult = BookLibrary::Client::ensureReady(data->url, data->token, data->deviceId, data->bookId,
+                                                         job->bookPath.c_str(), job->upload, &ingestProgress, job.get(),
+                                                         job->ingestResponse, &job->ingestStats, &job->cancel);
   } else {
     auto* data = static_cast<ChatRequestData*>(job->data);
     job->chatResult = VoiceRelay::ChatClient::ask(data->url, data->token, data->deviceId, data->prompt, job->reply,
@@ -292,6 +317,9 @@ void AskAiActivity::beginAsk(const char* question, Scope scope, const char* inte
   uncited_ = false;
   uncitedNotice_ = StrId::STR_AI_UNCITED;
   identifyingBook_ = false;
+  queryRetriedAfterIngest_ = false;
+  lastIngestUploading_ = true;
+  lastIngestPercent_ = 0;
   if (queryText_ != nullptr) queryText_[0] = '\0';
   if (relayReply_ != nullptr) relayReply_[0] = '\0';
   if (queryResponse_ != nullptr) *queryResponse_ = ReaderQuery::Response{};
@@ -791,19 +819,94 @@ void AskAiActivity::beginReaderQuery() {
   relayDeadlineMs_ = millis() + ReaderQuery::Client::TOTAL_TIMEOUT_MS;
 }
 
+void AskAiActivity::beginIngest(const bool upload) {
+  if (!book_) {
+    fail(tr(STR_BOOK_INGEST_FAILED));
+    return;
+  }
+  auto job = std::shared_ptr<RelayRequest>(new (std::nothrow) RelayRequest());
+  if (!job) {
+    fail(tr(STR_MIC_OOM));
+    return;
+  }
+  job->kind = RelayRequest::Kind::Ingest;
+  job->upload = upload;
+  job->bookPath = book_->getPath();
+  auto* data = static_cast<IngestRequestData*>(heap_caps_malloc(sizeof(IngestRequestData), MALLOC_CAP_SPIRAM));
+  if (data == nullptr) {
+    data = static_cast<IngestRequestData*>(
+        heap_caps_malloc(sizeof(IngestRequestData), MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT));
+  }
+  if (data == nullptr) {
+    fail(tr(STR_MIC_OOM));
+    return;
+  }
+  new (data) IngestRequestData{};
+  job->data = data;
+  snprintf(data->url, sizeof(data->url), "%s", CLOUD_CFG.relayUrl);
+  snprintf(data->token, sizeof(data->token), "%s", CLOUD_CFG.relayToken);
+  snprintf(data->deviceId, sizeof(data->deviceId), "%s", CLOUD_CFG.relayDeviceId);
+  snprintf(data->bookId, sizeof(data->bookId), "%s", bookId_);
+  if (!startRelayRequest(job)) {
+    fail(tr(STR_MIC_OOM));
+    return;
+  }
+  relayRequest_ = std::move(job);
+  relayDeadlineMs_ = millis() + BookLibrary::Client::TOTAL_TIMEOUT_MS;
+  requestUpdate();
+}
+
 void AskAiActivity::handleRelayCompletion() {
   if (state_ != State::Asking || relayRequest_ == nullptr) return;
   if (relayRequest_->timedOut.load(std::memory_order_acquire)) {
     relayRequest_->cancel.store(true, std::memory_order_release);
-    LOG_ERR("ASK", "%s request timed out; late output will be discarded",
-            relayRequest_->kind == RelayRequest::Kind::Query ? "reader query" : "relay chat");
+    const char* kind = relayRequest_->kind == RelayRequest::Kind::Query    ? "reader query"
+                       : relayRequest_->kind == RelayRequest::Kind::Ingest ? "book ingest"
+                                                                           : "relay chat";
+    LOG_ERR("ASK", "%s request timed out; late output will be discarded", kind);
     if (relayRequest_->workerFinished.load(std::memory_order_acquire)) relayRequest_.reset();
     fail(tr(STR_AI_REQUEST_TIMEOUT));
     return;
   }
+  if (relayRequest_->kind == RelayRequest::Kind::Ingest) {
+    const bool uploading = relayRequest_->uploading.load(std::memory_order_relaxed);
+    const uint8_t progress = relayRequest_->ingestProgress.load(std::memory_order_relaxed);
+    if (uploading != lastIngestUploading_ || progress != lastIngestPercent_) {
+      lastIngestUploading_ = uploading;
+      lastIngestPercent_ = progress;
+      requestUpdate();
+    }
+  }
   if (!relayRequest_->done.load(std::memory_order_acquire)) return;
   auto job = std::move(relayRequest_);
   relayDeadlineMs_ = 0;
+
+  if (job->kind == RelayRequest::Kind::Ingest) {
+    const auto result = job->ingestResult;
+    const auto stats = job->ingestStats;
+    if (result == BookLibrary::Client::Result::Cancelled) return;
+    if (result == BookLibrary::Client::Result::Ok) {
+      LOG_INF("ASK", "book %s ready; retrying cited query", bookId_);
+      queryRetriedAfterIngest_ = true;
+      beginReaderQuery();
+      return;
+    }
+    LOG_ERR("ASK", "book ingest failed: %s (http %d)", BookLibrary::Client::resultName(result), stats.httpStatus);
+    if (result == BookLibrary::Client::Result::Auth) {
+      fail(tr(STR_AUTH_FAILED));
+    } else if (result == BookLibrary::Client::Result::NoWifi) {
+      fail(tr(STR_STT_NO_NETWORK));
+    } else if (result == BookLibrary::Client::Result::TooLarge) {
+      fail(tr(STR_BOOK_TOO_LARGE));
+    } else if (result == BookLibrary::Client::Result::Unsupported) {
+      fail(tr(STR_BOOK_UNSUPPORTED));
+    } else if (result == BookLibrary::Client::Result::Timeout) {
+      fail(tr(STR_BOOK_INGEST_TIMEOUT));
+    } else {
+      fail(tr(STR_BOOK_INGEST_FAILED));
+    }
+    return;
+  }
 
   if (job->kind == RelayRequest::Kind::Chat) {
     const auto result = job->chatResult;
@@ -857,12 +960,22 @@ void AskAiActivity::handleRelayCompletion() {
   if (result != ReaderQuery::Client::Result::Ok) {
     switch (result) {
       case ReaderQuery::Client::Result::NotUploaded:
-        LOG_INF("ASK", "book %s not uploaded: falling back to uncited chat", bookId_);
-        beginChat(StrId::STR_AI_NOT_UPLOADED);
+        if (!queryRetriedAfterIngest_) {
+          LOG_INF("ASK", "book %s not uploaded: uploading before retry", bookId_);
+          beginIngest(true);
+        } else {
+          LOG_INF("ASK", "book %s still missing after ingest: falling back to uncited chat", bookId_);
+          beginChat(StrId::STR_AI_NOT_UPLOADED);
+        }
         return;
       case ReaderQuery::Client::Result::Indexing:
-        LOG_INF("ASK", "book %s still indexing: falling back to uncited chat", bookId_);
-        beginChat(StrId::STR_AI_INDEXING);
+        if (!queryRetriedAfterIngest_) {
+          LOG_INF("ASK", "book %s indexing: waiting before retry", bookId_);
+          beginIngest(false);
+        } else {
+          LOG_INF("ASK", "book %s still indexing after wait: falling back to uncited chat", bookId_);
+          beginChat(StrId::STR_AI_INDEXING);
+        }
         return;
       case ReaderQuery::Client::Result::PassageMissing:
         LOG_INF("ASK", "book %s passage ids missing: falling back to uncited chat", bookId_);
@@ -1706,7 +1819,12 @@ void AskAiActivity::render(RenderLock&&) {
       // until the reply settles. A large first fingerprint reports progress
       // here instead of leaving the reader staring at an unexplained wait.
       char status[96];
-      if (identifyingBook_) {
+      if (relayRequest_ && relayRequest_->kind == RelayRequest::Kind::Ingest) {
+        const StrId label = relayRequest_->uploading.load(std::memory_order_relaxed) ? StrId::STR_BOOK_UPLOADING
+                                                                                     : StrId::STR_BOOK_INDEXING;
+        std::snprintf(status, sizeof(status), "%s %u%%", I18N.get(label),
+                      static_cast<unsigned>(relayRequest_->ingestProgress.load(std::memory_order_relaxed)));
+      } else if (identifyingBook_) {
         std::snprintf(status, sizeof(status), "%s %u%%", tr(STR_AI_IDENTIFYING),
                       static_cast<unsigned>(identifyPercent_));
       } else {

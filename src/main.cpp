@@ -599,10 +599,12 @@ void setup() {
         renderer.displayBuffer(HalDisplay::HALF_REFRESH);
       } else {
         activityManager.goToBoot();  // frame file missing, fall back to the splash
+        activityManager.waitForBootAnimation();
       }
       break;
     case BootResume::Splash:
       activityManager.goToBoot();
+      activityManager.waitForBootAnimation();
       break;
   }
 

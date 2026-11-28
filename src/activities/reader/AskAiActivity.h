@@ -1,5 +1,6 @@
 #pragma once
 
+#include <BookLibraryClient.h>
 #include <Epub.h>
 #include <Epub/Page.h>
 #include <Epub/PassageRef.h>
@@ -18,15 +19,13 @@
 
 // AI-01 (阅读中快捷键 → 上下文提问): pick a reading question from a preset
 // list, speak or type one (VoiceActivity's question-input mode), or select a
-// line range on the current page. An indexed book goes to the relay's
-// /api/v1/reader/query with the page/selection's passage ids, so the answer is
-// rendered as source-labelled segments with verified citations that can be
-// jumped back to; a book the relay does not know (SD-copied, not uploaded)
-// degrades to /api/v1/chat with an explicit "no citations" notice. Every round
-// is kept as a bookmark entry (NoteStore) so it can be re-read from the
-// reader's note list. The relay is the only backend: an unconfigured relay or
-// a failed round is a hard failure with its reason on screen, never a fallback
-// to another model.
+// line range on the current page. Books missing from the relay are uploaded
+// and indexed automatically before the citation-grounded query is retried;
+// ingestion failures are shown for retry, while still-missing books or missing
+// passages degrade to uncited /chat with an explicit notice. Every round is kept as a bookmark entry (NoteStore) so it
+// can be re-read from the reader's note list. The relay is the only backend: an
+// unconfigured relay or a failed round is a hard failure with its reason on
+// screen, never a fallback to another model.
 //
 // Why this is its own lean activity instead of VoiceActivity:
 //  - no mic, no STT, no 32 KB history pool: the big buffers (prompt, record,
@@ -155,6 +154,7 @@ class AskAiActivity final : public Activity {
   // can cancel and leave while the bounded socket call unwinds.
   void beginRelayAsk();
   void beginReaderQuery();
+  void beginIngest(bool upload);
   void beginChat(StrId notice);
   void handleRelayCompletion();
   void cancelRelayRequest();
@@ -211,6 +211,9 @@ class AskAiActivity final : public Activity {
   // read by the render task, like identifyPercent_ below.
   volatile bool identifyingBook_ = false;
   volatile uint8_t identifyPercent_ = 0;
+  bool queryRetriedAfterIngest_ = false;
+  bool lastIngestUploading_ = true;
+  uint8_t lastIngestPercent_ = 0;
 
   State state_ = State::Picking;
   bool chapterDiscussionPending_ = false;

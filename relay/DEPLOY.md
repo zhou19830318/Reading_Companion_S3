@@ -104,7 +104,7 @@ ssh -L 8000:127.0.0.1:8000 <user>@<server-ip>
 V1 服务端接口契约见仓库内 [docs/ai-native/api-v1.md](../docs/ai-native/api-v1.md)。部署后：
 
 - **上传书籍**：`/admin` 的“阅读书库”卡片可上传 EPUB/TXT、查看索引状态与章节/段落数、软删除书籍；下方“笔记与引用”只读展示设备同步上来的记录。上传接口也开放给设备：`POST /api/v1/books`（设备 token）。
-- **索引**：默认后台解析。状态依次为 `pending → parsing → indexing → ready`，失败为 `failed`；设备用 `GET /api/v1/books/by-hash/{sha256}` 判断本地书是否已入库。未入库的书在设备端降级为无引用问答。
+- **索引**：默认后台解析。状态依次为 `pending → parsing → indexing → ready`，失败为 `failed`；设备通过摘要或引用问答发现 `BOOK_NOT_FOUND` 后，自动上传当前 EPUB 并轮询 `GET /api/v1/books/{id}/processing`，就绪后重试原请求。上传与轮询总时限 10 分钟；失败或书籍不受支持时显示原因，引用问答只有重试后仍缺失或引用段落缺失时才明确说明并降级为无引用回答。
 - **问答**：`POST /api/v1/reader/query` 需要真实 LLM provider（`LLM_PROVIDER=mock` 时只能联调协议，默认回复不是结构化 JSON，会被降级为 `[推断]`）。服务端强制校验每条引文必须是所送段落的子串，伪造引用会被丢弃并把 `book` 段降级为 `inference`。
 - **同步**：`POST /api/v1/sync/push` / `GET /api/v1/sync/pull`，`op_id` 幂等；冲突不会静默覆盖。只同步笔记/引用/AI 摘要，阅读进度仍走原 KOReader 同步。
 

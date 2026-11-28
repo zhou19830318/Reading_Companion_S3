@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
+from relay import book_ingest
 from relay.config import reload_settings
 from relay.main import app
 
@@ -90,6 +91,33 @@ def test_duplicate_upload_is_idempotent(client):
     assert again.json()["book_id"] == book["book_id"]
     listing = client.get("/api/v1/books", headers=DEVICE).json()["books"]
     assert len([b for b in listing if b["book_id"] == book["book_id"]]) == 1
+
+
+def test_duplicate_upload_retries_failed_ingest(client, monkeypatch):
+    book = MANIFEST["books"][0]
+    real_parse = book_ingest.parse_book
+    attempts = 0
+
+    def fail_once(path, book_id):
+        nonlocal attempts
+        attempts += 1
+        if attempts == 1:
+            raise book_ingest.IngestError("EPUB_PARSE_FAILED", "temporary parser failure")
+        return real_parse(path, book_id)
+
+    monkeypatch.setattr(book_ingest, "parse_book", fail_once)
+    first = _upload(client, book)
+    assert first.status_code == 202
+    assert first.json()["status"] == "failed"
+
+    retry = _upload(client, book)
+    assert retry.status_code == 200
+    assert retry.json()["duplicate"] is True
+    assert retry.json()["status"] == "ready"
+    processing = client.get(f"/api/v1/books/{book['book_id']}/processing", headers=DEVICE).json()
+    assert processing["status"] == "ready"
+    assert processing["passages"] == 20
+    assert attempts == 2
 
 
 def test_unsupported_format(client, tmp_path):

@@ -173,7 +173,7 @@ a1b2c3d4e5f60718:12:l5
 }
 ```
 
-- 重复上传（同一完整哈希）：返回已有记录，`duplicate: true`，不重复解析。
+- 重复上传（同一完整哈希）：返回已有记录，`duplicate: true`，不重复解析；已有状态为 `failed` 时重新置为 `pending` 并启动解析，便于设备确认键重试。
 - 格式不支持：`415 UNSUPPORTED_FORMAT`。
 - 超过大小：`413 BOOK_TOO_LARGE`。
 - 解析在后台进行；客户端轮询 `processing` 或 `/books/{id}`。
@@ -187,7 +187,7 @@ a1b2c3d4e5f60718:12:l5
 按完整 SHA-256 查询。用于设备登记：
 
 - `200`：返回 Book；
-- `404 BOOK_NOT_FOUND`：本地书未入库，设备降级为无引用问答。
+- `404 BOOK_NOT_FOUND`：本地书未入库。设备摘要与引用问答会自动上传当前 EPUB，再轮询 `processing`，就绪后重试原请求；自动入库失败会显示错误，重试后仍缺失或引用段落缺失时才明确说明并降级为无引用问答。
 
 ### 3.4 `GET /api/v1/books/{book_id}/processing`
 
